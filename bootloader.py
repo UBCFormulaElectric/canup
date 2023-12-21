@@ -30,6 +30,8 @@ BOOT_STATUS_APP_VALID = 0
 BOOT_STATUS_APP_INVALID = 1
 BOOT_STATUS_NO_APP = 2
 
+MIN_PROG_SIZE_BYTES = 32
+
 
 class Bootloader:
     def __init__(
@@ -133,6 +135,8 @@ class Bootloader:
                     arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
                 )
             )
+
+            time.sleep(0.0001)
 
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
@@ -281,4 +285,7 @@ class Bootloader:
             Size, in bytes.
 
         """
-        return int(math.ceil((self.ih.maxaddr() - self.ih.minaddr()) / 8) * 8)
+        return int(
+            math.ceil((self.ih.maxaddr() - self.ih.minaddr()) / MIN_PROG_SIZE_BYTES)
+            * MIN_PROG_SIZE_BYTES
+        )
