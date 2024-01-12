@@ -137,6 +137,7 @@ class Bootloader:
                 )
             )
 
+            # Empirically, this tiny delay between messages seems to improve reliability.
             time.sleep(0.0001)
 
         if self.ui_callback:
