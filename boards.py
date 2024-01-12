@@ -68,6 +68,31 @@ STM32F412_MCU = Microcontroller(
     ],
 )
 
+STM32H733_MCU = Microcontroller(
+    name="STM32H733xx",
+    # Referenced from ST RM0468.
+    # (https://www.st.com/resource/en/reference_manual/rm0468-stm32h723733-stm32h725735-and-stm32h730-value-line-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
+    flash_sectors=[
+        FlashSector(
+            id=sector_id,
+            base_address=base,
+            size=size_kb * KB,
+            write_protect=write_protect,
+        )
+        for sector_id, base, size_kb, write_protect in [
+            # Sectors 0 is taken up by bootloader code, so mark it as write-protect.
+            (0, 0x08000000, 128, True),  # Sector 0
+            (1, 0x08020000, 128, False),  # Sector 1
+            (2, 0x08040000, 128, False),  # Sector 2
+            (3, 0x08060000, 128, False),  # Sector 3
+            (4, 0x08080000, 128, False),  # Sector 4
+            (5, 0x080A0000, 128, False),  # Sector 5
+            (6, 0x080C0000, 128, False),  # Sector 6
+            (7, 0x080E0000, 128, False),  # Sector 7
+        ]
+    ],
+)
+
 BMS = Board(
     name="BMS",
     start_update_can_id=1100,
@@ -103,6 +128,13 @@ DIM = Board(
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "thruna", "DIM", "DIM_app_metadata.hex"),
 )
+H7DEV = Board(
+    name="h7dev",
+    start_update_can_id=1300,
+    update_ack_can_id=1301,
+    mcu=STM32H733_MCU,
+    path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
+)
 
 CONFIGS = {
     "BMS": [BMS],
@@ -111,4 +143,5 @@ CONFIGS = {
     "PDM": [PDM],
     "DIM": [DIM],
     "thruna": [BMS, DCM, FSM, DIM, PDM],
+    "h7dev": [H7DEV],
 }
