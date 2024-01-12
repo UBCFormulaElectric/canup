@@ -30,6 +30,7 @@ BOOT_STATUS_APP_VALID = 0
 BOOT_STATUS_APP_INVALID = 1
 BOOT_STATUS_NO_APP = 2
 
+# The minimum amount of data the microcontroller can program at a time.
 MIN_PROG_SIZE_BYTES = 32
 
 
@@ -278,8 +279,10 @@ class Bootloader:
 
     def size_bytes(self) -> int:
         """
-        Get the size of the binary. We send 2 4-byte words at a time during programming, so the size
-        up to nearest 8 bytes for convenience.
+        Get the size of the binary. This **must** be a multiple of 32, since the
+        STM32H733xx microcontroller can only write 32 bytes at a time. See
+        `firmware/boot/h7boot/bootloader_h7.c` for how this works on the
+        microcontroller side.
 
         Returns:
             Size, in bytes.
@@ -287,5 +290,4 @@ class Bootloader:
         """
         return int(
             math.ceil((self.ih.maxaddr() - self.ih.minaddr()) / MIN_PROG_SIZE_BYTES)
-            * MIN_PROG_SIZE_BYTES
         )
