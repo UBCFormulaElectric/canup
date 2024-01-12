@@ -290,4 +290,5 @@ class Bootloader:
         """
         return int(
             math.ceil((self.ih.maxaddr() - self.ih.minaddr()) / MIN_PROG_SIZE_BYTES)
+            * MIN_PROG_SIZE_BYTES
         )
