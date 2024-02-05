@@ -4,6 +4,7 @@ boards.py
 Config info about boards that can be updated.
 
 """
+
 from typing import List
 import os
 import dataclasses
@@ -135,6 +136,13 @@ H7DEV = Board(
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
 )
+VC = Board(
+    name="VC",
+    start_update_can_id=1210,
+    update_ack_can_id=1211,
+    mcu=STM32H733_MCU,
+    path=os.path.join("firmware", "quadruna", "VC", "VC_app_metadata.hex"),
+)
 
 CONFIGS = {
     "BMS": [BMS],
@@ -144,4 +152,6 @@ CONFIGS = {
     "DIM": [DIM],
     "thruna": [BMS, DCM, FSM, DIM, PDM],
     "h7dev": [H7DEV],
+    "VC": [VC],
+    "quadruna": [VC],  # BMS, FSM, RSM, CRIT
 }
