@@ -99,35 +99,35 @@ BMS = Board(
     start_update_can_id=1100,
     update_ack_can_id=1101,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "thruna", "BMS", "BMS_app_metadata.hex"),
+    path=os.path.join("firmware", "thruna", "BMS", "thruna_BMS_app_metadata.hex"),
 )
 DCM = Board(
     name="DCM",
     start_update_can_id=1110,
     update_ack_can_id=1111,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "thruna", "DCM", "DCM_app_metadata.hex"),
+    path=os.path.join("firmware", "thruna", "DCM", "thruna_DCM_app_metadata.hex"),
 )
 FSM = Board(
     name="FSM",
     start_update_can_id=1120,
     update_ack_can_id=1121,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "thruna", "FSM", "FSM_app_metadata.hex"),
+    path=os.path.join("firmware", "thruna", "FSM", "thruna_FSM_app_metadata.hex"),
 )
 PDM = Board(
     name="PDM",
     start_update_can_id=1130,
     update_ack_can_id=1131,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "thruna", "PDM", "PDM_app_metadata.hex"),
+    path=os.path.join("firmware", "thruna", "PDM", "thruna_PDM_app_metadata.hex"),
 )
 DIM = Board(
     name="DIM",
     start_update_can_id=1140,
     update_ack_can_id=1141,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "thruna", "DIM", "DIM_app_metadata.hex"),
+    path=os.path.join("firmware", "thruna", "DIM", "thruna_DIM_app_metadata.hex"),
 )
 H7DEV = Board(
     name="h7dev",
@@ -141,7 +141,7 @@ VC = Board(
     start_update_can_id=1210,
     update_ack_can_id=1211,
     mcu=STM32H733_MCU,
-    path=os.path.join("firmware", "quadruna", "VC", "VC_app_metadata.hex"),
+    path=os.path.join("firmware", "quadruna", "VC", "quadruna_VC_app_metadata.hex"),
 )
 
 CONFIGS = {
