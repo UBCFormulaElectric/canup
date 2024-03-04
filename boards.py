@@ -159,5 +159,6 @@ CONFIGS = {
     "thruna": [BMS, DCM, FSM, DIM, PDM],
     "h7dev": [H7DEV],
     "VC": [VC],
+    "quadruna_BMS": [quadruna_BMS],
     "quadruna": [VC, quadruna_BMS],  # TODO add BMS, FSM, RSM, CRIT
 }
