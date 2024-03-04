@@ -9,7 +9,6 @@ from typing import List
 import os
 import dataclasses
 
-
 KB = 1024  # bytes
 
 
@@ -143,6 +142,13 @@ VC = Board(
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "quadruna", "VC", "quadruna_VC_app_metadata.hex"),
 )
+quadruna_BMS = Board(
+    name="BMS",
+    start_update_can_id=1200,
+    update_ack_can_id=1201,
+    mcu=STM32H733_MCU,
+    path=os.path.join("firmware", "quadruna", "BMS", "quadruna_BMS_app_metadata.hex"),
+)
 
 CONFIGS = {
     "BMS": [BMS],
@@ -153,5 +159,5 @@ CONFIGS = {
     "thruna": [BMS, DCM, FSM, DIM, PDM],
     "h7dev": [H7DEV],
     "VC": [VC],
-    "quadruna": [VC],  # BMS, FSM, RSM, CRIT
+    "quadruna": [VC, quadruna_BMS],  # TODO add BMS, FSM, RSM, CRIT
 }
