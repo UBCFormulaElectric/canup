@@ -93,49 +93,42 @@ STM32H733_MCU = Microcontroller(
     ],
 )
 
-BMS = Board(
+thruna_BMS = Board(
     name="BMS",
     start_update_can_id=1100,
     update_ack_can_id=1101,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "thruna", "BMS", "thruna_BMS_app_metadata.hex"),
 )
-DCM = Board(
+thruna_DCM = Board(
     name="DCM",
     start_update_can_id=1110,
     update_ack_can_id=1111,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "thruna", "DCM", "thruna_DCM_app_metadata.hex"),
 )
-FSM = Board(
+thruna_FSM = Board(
     name="FSM",
     start_update_can_id=1120,
     update_ack_can_id=1121,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "thruna", "FSM", "thruna_FSM_app_metadata.hex"),
 )
-PDM = Board(
+thruna_PDM = Board(
     name="PDM",
     start_update_can_id=1130,
     update_ack_can_id=1131,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "thruna", "PDM", "thruna_PDM_app_metadata.hex"),
 )
-DIM = Board(
+thruna_DIM = Board(
     name="DIM",
     start_update_can_id=1140,
     update_ack_can_id=1141,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "thruna", "DIM", "thruna_DIM_app_metadata.hex"),
 )
-H7DEV = Board(
-    name="h7dev",
-    start_update_can_id=1300,
-    update_ack_can_id=1301,
-    mcu=STM32H733_MCU,
-    path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
-)
-VC = Board(
+quadruna_VC = Board(
     name="VC",
     start_update_can_id=1210,
     update_ack_can_id=1211,
@@ -149,16 +142,47 @@ quadruna_BMS = Board(
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "quadruna", "BMS", "quadruna_BMS_app_metadata.hex"),
 )
+quadruna_FSM = Board(
+    name="FSM",
+    start_update_can_id=1220,
+    update_ack_can_id=1221,
+    mcu=STM32F412_MCU,
+    path=os.path.join("firmware", "quadruna", "FSM", "quadruna_FSM_app_metadata.hex"),
+)
+quadruna_RSM = Board(
+    name="RSM",
+    start_update_can_id=1230,
+    update_ack_can_id=1231,
+    mcu=STM32F412_MCU,
+    path=os.path.join("firmware", "quadruna", "RSM", "quadruna_RSM_app_metadata.hex"),
+)
+quadruna_CRIT = Board(
+    name="CRIT",
+    start_update_can_id=1240,
+    update_ack_can_id=1241,
+    mcu=STM32F412_MCU,
+    path=os.path.join("firmware", "quadruna", "CRIT", "quadruna_CRIT_app_metadata.hex"),
+)
+h7dev = Board(
+    name="h7dev",
+    start_update_can_id=1300,
+    update_ack_can_id=1301,
+    mcu=STM32H733_MCU,
+    path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
+)
 
 CONFIGS = {
-    "BMS": [BMS],
-    "DCM": [DCM],
-    "FSM": [FSM],
-    "PDM": [PDM],
-    "DIM": [DIM],
-    "thruna": [BMS, DCM, FSM, DIM, PDM],
-    "h7dev": [H7DEV],
-    "VC": [VC],
+    "thruna_BMS": [thruna_BMS],
+    "thruna_DCM": [thruna_DCM],
+    "thruna_FSM": [thruna_FSM],
+    "thruna_PDM": [thruna_PDM],
+    "thruna_DIM": [thruna_DIM],
+    "thruna": [thruna_BMS, thruna_DCM, thruna_FSM, thruna_DIM, thruna_PDM],
+    "quadruna_VC": [quadruna_VC],
     "quadruna_BMS": [quadruna_BMS],
-    "quadruna": [VC, quadruna_BMS],  # TODO add BMS, FSM, RSM, CRIT
+    "quadruna_FSM": [quadruna_FSM],
+    "quadruna_RSM": [quadruna_RSM],
+    "quadruna_CRIT": [quadruna_CRIT],
+    "quadruna": [quadruna_VC, quadruna_BMS, quadruna_FSM, quadruna_RSM, quadruna_CRIT],
+    "h7dev": [h7dev],
 }
