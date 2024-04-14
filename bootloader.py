@@ -282,7 +282,7 @@ class Bootloader:
         """
         Get the size of the binary. This **must** be a multiple of 32, since the
         STM32H733xx microcontroller can only write 32 bytes at a time. See
-        `firmware/boot/h7boot/bootloader_h7.c` for how this works on the
+        `firmware/boot/bootloader_h7.c` for how this works on the
         microcontroller side.
 
         Returns:
