@@ -4,16 +4,19 @@ update.py
 Main driver script used to update code over the CAN bus.
 
 """
-from typing import List
+
 import argparse
-import intelhex
-import can
 import os
-from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn
+from typing import List
+
+import can
+import intelhex
 from rich.console import Console, Group
 from rich.live import Live
-import bootloader
+from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn
+
 import boards
+import bootloader
 
 console = Console()
 status = console.status("Status")
