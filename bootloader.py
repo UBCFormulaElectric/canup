@@ -18,6 +18,7 @@ import boards
 ERASE_SECTOR_CAN_ID = 1000
 PROGRAM_CAN_ID = 1001
 VERIFY_CAN_ID = 1002
+LOST_PACKET_CAN_ID = 1003
 
 # CAN reply message IDs.
 ERASE_SECTOR_COMPLETE_CAN_ID = 1010
@@ -124,6 +125,7 @@ class Bootloader:
         by computing a checksum.
 
         """
+        unreceived_packets = []
         for i, address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
         ):
@@ -142,6 +144,8 @@ class Bootloader:
 
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
+        
+        self.resend_lost_packets()
 
     def status(self) -> Optional[int]:
         """
@@ -293,3 +297,24 @@ class Bootloader:
             math.ceil((self.ih.maxaddr() - self.ih.minaddr()) / MIN_PROG_SIZE_BYTES)
             * MIN_PROG_SIZE_BYTES
         )
+
+    def resend_lost_packets(self) -> None:
+        """
+        Resend lost packets based on the information received from bootloader.
+
+        """
+        while True:
+            msg = self.bus.recv(timeout=1)
+            if msg and msg.arbitration_id == LOST_PACKET_CAN_ID:
+                lost_address = (msg.data[1] << 8) | msg.data[0]
+                data = [self.ih[lost_address + i] for i in range(0, 8)]
+                self.bus.send(
+                    can.Message(
+                        arbitration_id=LOST_PACKET_CAN_ID,
+                        data=data,
+                        is_extended_id=False,
+                    )
+                )
+            else:
+                break
+ 
