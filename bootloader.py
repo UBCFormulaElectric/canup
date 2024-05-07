@@ -125,7 +125,6 @@ class Bootloader:
         by computing a checksum.
 
         """
-        unreceived_packets = []
         for i, address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
         ):
