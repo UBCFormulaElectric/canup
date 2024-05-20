@@ -30,6 +30,11 @@ bus_mapping: dict[int, str] = {
     302: "FSM",
     419: "RSM",
     204: "VC",
+    1219: "VC_boot",
+    1209: "BMS_boot",
+    1239: "RSM_boot",
+    1229: "FSM_boot",
+    1249: "CRIT_boot",
 }
 
 bus_found: dict[str, bool] = {
@@ -39,6 +44,11 @@ bus_found: dict[str, bool] = {
     "FSM": False,
     "RSM": False,
     "VC": False,
+    "VC_boot": False,
+    "BMS_boot": False,
+    "RSM_boot": False,
+    "FSM_boot": False,
+    "CRIT_boot": False,
 }
 
 if __name__ == "__main__":
