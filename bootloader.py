@@ -10,6 +10,7 @@ import can
 import time
 import intelhex
 import boards
+import struct
 
 # Keep CAN protocol in sync with:
 # Consolidated-Firmware/firmware/boot/shared/config.h
@@ -18,7 +19,8 @@ import boards
 ERASE_SECTOR_CAN_ID = 1000
 PROGRAM_CAN_ID = 1001
 VERIFY_CAN_ID = 1002
-LOST_PACKET_CAN_ID = 1003
+CONFIRM_CHUNK_CAN_ID = 1003
+LOST_PACKET_CAN_ID = 1004
 
 # CAN reply message IDs.
 ERASE_SECTOR_COMPLETE_CAN_ID = 1010
@@ -125,6 +127,10 @@ class Bootloader:
         by computing a checksum.
 
         """
+        def _validator(msg: can.Message):
+            """Validate that we've received the CONFIRM_CHUNK_CAN_ID"""
+            return True if msg.arbitration_id == CONFIRM_CHUNK_CAN_ID else None
+        
         for i, address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
         ):
@@ -138,13 +144,19 @@ class Bootloader:
                 )
             )
 
+            if i % 32 == 0:
+                can.Message(
+                    arbitration_id=CONFIRM_CHUNK_CAN_ID, data=address+i, is_extended_id=False
+                )
+                rx_msg = self._await_can_msg(_validator)
+                if rx_msg is not None and rx_msg.data[0] == 0:
+                    self.resend_lost_chunk(address+i)
+
             # Empirically, this tiny delay between messages seems to improve reliability.
-            time.sleep(0.0005)
+            # time.sleep(0.0005)
 
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
-        
-        self.resend_lost_packets()
 
     def status(self) -> Optional[int]:
         """
@@ -297,23 +309,17 @@ class Bootloader:
             * MIN_PROG_SIZE_BYTES
         )
 
-    def resend_lost_packets(self) -> None:
+    def resend_lost_chunk(self, starting_address) -> None:
         """
-        Resend lost packets based on the information received from bootloader.
+        Resend a lost chunk, where each packet contains the 4-byte address and 4-bytes of data
 
         """
-        while True:
-            msg = self.bus.recv(timeout=1)
-            if msg and msg.arbitration_id == LOST_PACKET_CAN_ID:
-                lost_address = (msg.data[1] << 8) | msg.data[0]
-                data = [self.ih[lost_address + i] for i in range(0, 8)]
-                self.bus.send(
-                    can.Message(
-                        arbitration_id=LOST_PACKET_CAN_ID,
-                        data=data,
-                        is_extended_id=False,
-                    )
+        for i, address in range(starting_address, starting_address + 32, 4):
+            data = [self.ih[address + i] for i in range(0, 4)]
+            packed_data = struct.pack('<II', address+i, data)
+            self.bus.send(
+                can.Message(
+                    arbitration_id=PROGRAM_CAN_ID, data=[packed_data], is_extended_id=False
                 )
-            else:
-                break
+            )
  
