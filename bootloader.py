@@ -10,7 +10,6 @@ import can
 import time
 import intelhex
 import boards
-import struct
 
 # Keep CAN protocol in sync with:
 # Consolidated-Firmware/firmware/boot/shared/config.h
@@ -20,7 +19,6 @@ ERASE_SECTOR_CAN_ID = 1000
 PROGRAM_CAN_ID = 1001
 VERIFY_CAN_ID = 1002
 CONFIRM_CHUNK_CAN_ID = 1003
-LOST_PACKET_CAN_ID = 1004
 
 # CAN reply message IDs.
 ERASE_SECTOR_COMPLETE_CAN_ID = 1010
@@ -146,11 +144,17 @@ class Bootloader:
 
             if i % 32 == 0:
                 can.Message(
-                    arbitration_id=CONFIRM_CHUNK_CAN_ID, data=address+i, is_extended_id=False
+                    arbitration_id=CONFIRM_CHUNK_CAN_ID, data=address, is_extended_id=False
                 )
                 rx_msg = self._await_can_msg(_validator)
                 if rx_msg is not None and rx_msg.data[0] == 0:
-                    self.resend_lost_chunk(address+i)
+                    for resend_address in range(address, address + 32, 8):
+                        data = [self.ih[resend_address + j] for j in range(0, 8)]
+                        self.bus.send(
+                            can.Message(
+                                arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
+                            )
+                        )
 
             # Empirically, this tiny delay between messages seems to improve reliability.
             # time.sleep(0.0005)
@@ -308,18 +312,4 @@ class Bootloader:
             math.ceil((self.ih.maxaddr() - self.ih.minaddr()) / MIN_PROG_SIZE_BYTES)
             * MIN_PROG_SIZE_BYTES
         )
-
-    def resend_lost_chunk(self, starting_address) -> None:
-        """
-        Resend a lost chunk, where each packet contains the 4-byte address and 4-bytes of data
-
-        """
-        for i, address in range(starting_address, starting_address + 32, 4):
-            data = [self.ih[address + i] for i in range(0, 4)]
-            packed_data = struct.pack('<II', address+i, data)
-            self.bus.send(
-                can.Message(
-                    arbitration_id=PROGRAM_CAN_ID, data=[packed_data], is_extended_id=False
-                )
-            )
  
