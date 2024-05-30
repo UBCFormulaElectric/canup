@@ -148,13 +148,8 @@ class Bootloader:
                 )
                 rx_msg = self._await_can_msg(_validator)
                 if rx_msg is not None and rx_msg.data[0] == 0:
-                    for resend_address in range(address, address + 32, 8):
-                        data = [self.ih[resend_address + j] for j in range(0, 8)]
-                        self.bus.send(
-                            can.Message(
-                                arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
-                            )
-                        )
+                    i -= 8
+                    address -= 32
 
             # Empirically, this tiny delay between messages seems to improve reliability.
             # time.sleep(0.0005)
