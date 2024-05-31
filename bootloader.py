@@ -135,21 +135,22 @@ class Bootloader:
             if self.ui_callback and i % 128 == 0:
                 self.ui_callback("Programming data", self.size_bytes(), i * 8)
 
-            data = [self.ih[address + i] for i in range(0, 8)]
+            if i % 1024 == 0:
+                can.Message(
+                    arbitration_id=CONFIRM_CHUNK_CAN_ID, data=address, is_extended_id=False
+                )
+                rx_msg = self._await_can_msg(_validator)
+                if rx_msg.data[0] == 0:
+                    print("resending chunk")
+                    address -= 8192
+                    i -= 1024
+
+            data = [self.ih[address + j] for j in range(0, 8)]
             self.bus.send(
                 can.Message(
                     arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
                 )
             )
-
-            if i % 32 == 0:
-                can.Message(
-                    arbitration_id=CONFIRM_CHUNK_CAN_ID, data=address, is_extended_id=False
-                )
-                rx_msg = self._await_can_msg(_validator)
-                if rx_msg is not None and rx_msg.data[0] == 0:
-                    i -= 8
-                    address -= 32
 
             # Empirically, this tiny delay between messages seems to improve reliability.
             # time.sleep(0.0005)
@@ -158,7 +159,7 @@ class Bootloader:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
 
     def status(self) -> Optional[int]:
-        """
+        """r
         Query the bootloader if programming was successful. To do this, 2 checksums are computed:
         1. At compile time, a checksum of the app hex is calculated and added to the generated image's hex.
         2. The bootloader can independly calculate a checksum of the app code in its flash memory.
@@ -274,7 +275,7 @@ class Bootloader:
         time.sleep(0.5)
 
     def _await_can_msg(
-        self, validator=Callable[[can.Message], Optional[bool]], timeout: int = 5
+        self, validator=Callable[[can.Message], Optional[bool]], timeout: int = 10
     ) -> Optional[can.Message]:
         """
         Helper function to await a CAN msg response within a timeout, with a validator function.
@@ -282,7 +283,7 @@ class Bootloader:
         """
         start = time.time()
         while time.time() - start < timeout:
-            rx_msg = self.bus.recv(timeout=1)
+            rx_msg = self.bus.recv(timeout=10)
             if rx_msg:
                 if validator:
                     if validator(rx_msg) is True:
