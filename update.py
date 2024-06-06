@@ -35,12 +35,14 @@ def ui_callback(description, total, completed):
     )
 
 
-def update(config_name: str, config_boards: List[boards.Board], build_dir: str) -> None:
+def update(configs: List[boards.Board], build_dir: str) -> None:
     """Update and handle UI."""
     with Live(Group(status, progress), transient=True) as live:
-        live.console.log(f"Updating firmware with config: [blue bold]{config_name}")
+        config_name = ", ".join(board.name for board in configs)
+        num_boards = len(configs)
+        live.console.log(f"Updating firmware for boards: [blue bold]{config_name}")
 
-        for i, board in enumerate(config_boards):
+        for i, board in enumerate(configs):
             progress.update(
                 task_id=steps_task,
                 total=0,
@@ -68,12 +70,14 @@ def update(config_name: str, config_boards: List[boards.Board], build_dir: str) 
         )
 
 
-def erase(config_name: str, config_boards: List[boards.Board]) -> None:
+def erase(configs: List[boards.Board]) -> None:
     """Erase and handle UI."""
     with Live(Group(status, progress), transient=True) as live:
+        config_name = ", ".join(board.name for board in configs)
+        num_boards = len(configs)
         live.console.log(f"Erasing with config: [blue bold]{config_name}")
 
-        for i, board in enumerate(config_boards):
+        for i, board in enumerate(configs):
             status.update(
                 f"Erasing board [yellow]{i+1}/{num_boards}[/]: [blue bold]{board.name}"
             )
@@ -103,7 +107,6 @@ if __name__ == "__main__":
         type=str,
         required=True,
         help="Config to load",
-        choices=boards.CONFIGS.keys(),
     )
     parser.add_argument(
         "--build",
@@ -115,14 +118,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load config and binary.
-    config = boards.CONFIGS[args.config]
-    num_boards = len(config)
+    configs = []
+    for config_name in args.config.split(","):
+        config_name = config_name.strip()
+        config = boards.CONFIGS[config_name]
+
+        for board in config:
+            if board not in configs:
+                configs.append(board)
 
     with can.interface.Bus(
         interface=args.bus, channel=args.channel, bitrate=args.bit_rate
     ) as bus:
         bus.shutdown
         if args.erase:
-            erase(config_name=args.config, config_boards=config)
+            erase(configs=configs)
         else:
-            update(config_name=args.config, config_boards=config, build_dir=args.build)
+            update(configs=configs, build_dir=args.build)

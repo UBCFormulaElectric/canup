@@ -137,11 +137,11 @@ h7dev = Board(
 )
 
 CONFIGS = {
-    "quadruna_VC": [quadruna_VC],
-    "quadruna_BMS": [quadruna_BMS],
-    "quadruna_FSM": [quadruna_FSM],
-    "quadruna_RSM": [quadruna_RSM],
-    "quadruna_CRIT": [quadruna_CRIT],
+    "VC": [quadruna_VC],
+    "BMS": [quadruna_BMS],
+    "FSM": [quadruna_FSM],
+    "RSM": [quadruna_RSM],
+    "CRIT": [quadruna_CRIT],
     "quadruna": [quadruna_VC, quadruna_BMS, quadruna_FSM, quadruna_RSM, quadruna_CRIT],
     "h7dev": [h7dev],
 }
