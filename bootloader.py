@@ -35,7 +35,7 @@ BOOT_STATUS_NO_APP = 2
 # The minimum amount of data the microcontroller can program at a time.
 MIN_PROG_SIZE_BYTES = 32
 
-CHUNK_SIZE_BYTES = 32768
+CHUNK_SIZE_BYTES = 32
 
 
 class Bootloader:
@@ -136,23 +136,11 @@ class Bootloader:
         bytes_written = 0
         size_cache = self.size_bytes()
         minaddr_cache = self.ih.minaddr()
+        current_address = minaddr_cache
+
         while bytes_written < size_cache:
             if self.ui_callback and bytes_written % 1024 == 0:
                 self.ui_callback("Programming data", size_cache, bytes_written)
-
-            current_address = minaddr_cache + bytes_written
-            if bytes_written != 0 and bytes_written % CHUNK_SIZE_BYTES == 0:
-                self.bus.send(
-                    can.Message(
-                        arbitration_id=CONFIRM_CHUNK_CAN_ID,
-                        data=current_address.to_bytes(length=4, byteorder="little"),
-                        is_extended_id=False,
-                    )
-                )
-                rx_msg = self._await_can_msg(_validator)
-                if rx_msg is not None and rx_msg.data[0] == 0:
-                    print("resending chunk")
-                    bytes_written -= CHUNK_SIZE_BYTES
 
             data = [self.ih[current_address + i] for i in range(0, 8)]
             self.bus.send(
@@ -162,6 +150,24 @@ class Bootloader:
             )
 
             bytes_written += 8
+            current_address += 8
+
+            if bytes_written != 0 and bytes_written % CHUNK_SIZE_BYTES == 0:
+                self.bus.send(
+                    can.Message(
+                        arbitration_id=CONFIRM_CHUNK_CAN_ID,
+                        data=current_address.to_bytes(length=4, byteorder="little"),
+                        is_extended_id=False,
+                    )
+                )
+                rx_msg = self._await_can_msg(_validator)
+                if rx_msg is None:
+                    raise RuntimeError(
+                        "Bootloader for {self.board.name} did not respond to command to start a firmware handshake"
+                    )
+                elif rx_msg.data[0] == 0:
+                    bytes_written -= CHUNK_SIZE_BYTES
+                    current_address = minaddr_cache + bytes_written
 
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
@@ -231,6 +237,7 @@ class Bootloader:
 
         self.ui_callback("Verifying programming", self.size_bytes(), 0)
         boot_status = self.status()
+        print("boot status: ", boot_status)
         if boot_status is not None:
             if boot_status != BOOT_STATUS_APP_VALID:
                 raise RuntimeError(
