@@ -39,7 +39,7 @@ def update(config_name: str, config_boards: List[boards.Board], build_dir: str) 
     """Update and handle UI."""
     with Live(Group(status, progress), transient=True) as live:
         live.console.log(f"Updating firmware with config: [blue bold]{config_name}")
-
+        
         for i, board in enumerate(config_boards):
             progress.update(
                 task_id=steps_task,

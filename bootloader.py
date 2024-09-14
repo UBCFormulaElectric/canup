@@ -48,6 +48,8 @@ class Bootloader:
         self.board = board
         self.timeout = timeout
         self.ui_callback = ui_callback
+        
+        self.seq = 0
 
     def start_update(self) -> bool:
         """
@@ -124,6 +126,7 @@ class Bootloader:
         by computing a checksum.
 
         """
+        
         for i, address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
         ):
@@ -142,6 +145,55 @@ class Bootloader:
 
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
+            
+    def program_tcp(self) -> None:
+        """
+        Program the binary into flash. There is no CAN handshake here to reduce
+        latency during programming. Also, the bootloader will verify the app's code is valid
+        by computing a checksum.
+        
+        Send the next data packet based on the sequence nubmer
+        Update the sequence number only if the ack number recieved is correct.
+        If no ack packet is recieve (data packet or ack packet is droped) the wait until timeout
+        If the ack recieved is not expected, then the 
+
+        """
+        # split the data in 7 byte per segment
+        self.seq = 0
+        packet_size = 7
+        segement = range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), packet_size)
+        base_address = self.ih.minaddr()
+        
+        def _validator(msg: can.Message):
+            return msg.data[0] == self.seq % 0xff
+        
+        while (len(segement) > self.seq) :
+            
+            if self.ui_callback and self.seq % 128 == 0:
+                self.ui_callback("Programming data", self.size_bytes(), self.seq * packet_size)
+            address = base_address + self.seq * packet_size
+            data = [self.seq, self.ih[address + i] for i in range(0, packet_size)]
+            self.bus.send(
+                can.Message(
+                    arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
+                )
+            )
+            
+            # wait for seq.
+            reply = self._await_can_msg_tcp(validator=_validator)
+            
+            if(reply):
+                # correct seq, send the next packet
+                self.seq += 1
+            elif (reply is not None):
+                # wrong reset the seq to ack packet, reset
+                self.seq = reply.data
+            else:
+                # timeout reset
+                pass
+    
+
+        
 
     def status(self) -> Optional[int]:
         """
@@ -275,6 +327,25 @@ class Bootloader:
                         return rx_msg
                     if validator(rx_msg) is False:
                         return False
+
+        return None
+    
+    def _await_can_msg_tcp(
+        self, validator=Callable[[can.Message], Optional[bool]], timeout: int = 1
+    ) -> Optional[can.Message]:
+        """
+        Helper function to await a CAN msg response within a timeout, with a validator function.
+
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            rx_msg = self.bus.recv(timeout=1)
+            if rx_msg:
+                if validator:
+                    if validator(rx_msg) is True:
+                        return True
+                    if validator(rx_msg) is False:
+                        return rx_msg
 
         return None
 
