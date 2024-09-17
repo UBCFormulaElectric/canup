@@ -148,14 +148,7 @@ class Bootloader:
             
     def program_tcp(self) -> None:
         """
-        Program the binary into flash. There is no CAN handshake here to reduce
-        latency during programming. Also, the bootloader will verify the app's code is valid
-        by computing a checksum.
-        
-        Send the next data packet based on the sequence nubmer
-        Update the sequence number only if the ack number recieved is correct.
-        If no ack packet is recieve (data packet or ack packet is droped) the wait until timeout
-        If the ack recieved is not expected, then the 
+        init, host send first packet with seq 0 -> receiver check seq, if good increment its seq and reply ack 0 -> host check ack -> if good increment the seq counter. 
 
         """
         # split the data in 7 byte per segment
