@@ -148,12 +148,17 @@ class Bootloader:
             
     def program_tcp(self) -> None:
         """
-        init, host send first packet with seq 0 -> receiver check seq, if good increment its seq and reply ack 0 -> host check ack -> if good increment the seq counter. 
-
+        Host send first packet with seq 0 
+        -> receiver check seq, if good increment its seq and reply ack 0 
+        -> host check ack 
+        -> if good increment the seq counter. 
+        
+        Inveriance: self.seq will be the sequence number that is definitly recieved by the reciever. 
         """
         # split the data in 7 byte per segment
         self.seq = 0
         packet_size = 7
+        
         segement = range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), packet_size)
         base_address = self.ih.minaddr()
         
@@ -165,7 +170,7 @@ class Bootloader:
             if self.ui_callback and self.seq % 128 == 0:
                 self.ui_callback("Programming data", self.size_bytes(), self.seq * packet_size)
             address = base_address + self.seq * packet_size
-            data = [self.seq, self.ih[address + i] for i in range(0, packet_size)]
+            data = [self.seq % 0xff, self.ih[address + i] for i in range(0, packet_size)]
             self.bus.send(
                 can.Message(
                     arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
@@ -180,7 +185,7 @@ class Bootloader:
                 self.seq += 1
             elif (reply is not None):
                 # wrong reset the seq to ack packet, reset
-                self.seq = reply.data
+                self.seq = self.seq / 0xff + reply.data[0]
             else:
                 # timeout reset
                 pass
