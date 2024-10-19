@@ -4,6 +4,7 @@ bootloader.py
 Class used to interface with a embedded CAN bootloader.
 
 """
+
 from typing import Callable, Optional
 import math
 import can
@@ -18,6 +19,7 @@ import boards
 ERASE_SECTOR_CAN_ID = 1000
 PROGRAM_CAN_ID = 1001
 VERIFY_CAN_ID = 1002
+BOOT_CAN_START = 1012
 
 # CAN reply message IDs.
 ERASE_SECTOR_COMPLETE_CAN_ID = 1010
@@ -60,9 +62,27 @@ class Bootloader:
 
         """
 
-        def _validator(msg: can.Message) -> bool:
+        def _validatorUpdate(msg: can.Message) -> bool:
             """Validate that we've received the "update ack" msg."""
             return True if msg.arbitration_id == self.board.update_ack_can_id else None
+
+        def _validatorCANStart(msg: can.Message) -> bool:
+            """Validate that we've received the "BOOT_CAN_START" msg."""
+            return True if msg.arbitration_id == self.board.BOOT_CAN_START else None
+
+        self.bus.send(
+            can.Message(
+                arbitration_id=self.board.start_update_can_id,
+                data=[],
+                is_extended_id=False,
+            )
+        )
+
+        if (
+            self._await_can_msg(validator=_validatorCANStart, timeout=self.timeout)
+            is None
+        ):
+            return False
 
         self.bus.send(
             can.Message(
@@ -72,7 +92,8 @@ class Bootloader:
             )
         )
         return (
-            self._await_can_msg(validator=_validator, timeout=self.timeout) is not None
+            self._await_can_msg(validator=_validatorUpdate, timeout=self.timeout)
+            is not None
         )
 
     def erase_sectors(self, sectors) -> bool:
