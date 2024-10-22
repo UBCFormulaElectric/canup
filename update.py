@@ -127,6 +127,8 @@ if __name__ == "__main__":
             if board not in configs:
                 configs.append(board)
 
+    print(can.interfaces.pcan.PcanBus().channel_info)
+
     with can.interface.Bus(
         interface=args.bus, channel=args.channel, bitrate=args.bit_rate
     ) as bus:
