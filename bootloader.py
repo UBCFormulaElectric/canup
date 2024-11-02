@@ -68,7 +68,7 @@ class Bootloader:
 
         def _validatorCANStart(msg: can.Message) -> bool:
             """Validate that we've received the "BOOT_CAN_START" msg."""
-            return True if msg.arbitration_id == BOOT_CAN_START else None
+            return True if msg.arbitration_id == self.board.BOOT_CAN_START else None
 
         self.bus.send(
             can.Message(
