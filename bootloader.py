@@ -84,12 +84,13 @@ class Bootloader:
         ):
             return False
 
-        self.bus.send(
+        self.bus.send_periodic(
             can.Message(
                 arbitration_id=self.board.start_update_can_id,
                 data=[],
                 is_extended_id=False,
-            )
+            ),
+            0.20
         )
         return (
             self._await_can_msg(validator=_validatorUpdate, timeout=self.timeout)
