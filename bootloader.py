@@ -72,26 +72,23 @@ class Bootloader:
 
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.start_update_can_id,
+                arbitration_id= BOOT_CAN_START,
                 data=[],
                 is_extended_id=False,
             )
         )
 
-        if (
-            self._await_can_msg(validator=_validatorCANStart, timeout=self.timeout)
-            is None
-        ):
-            return False
-
-        self.bus.send_periodic(
+        task = self.bus.send_periodic(
             can.Message(
                 arbitration_id=self.board.start_update_can_id,
                 data=[],
                 is_extended_id=False,
             ),
-            0.20
+            0.05
         )
+        time.sleep(0.2)
+        task.stop()
+        
         return (
             self._await_can_msg(validator=_validatorUpdate, timeout=self.timeout)
             is not None
