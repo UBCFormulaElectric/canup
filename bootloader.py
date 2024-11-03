@@ -78,16 +78,16 @@ class Bootloader:
             )
         )
 
-        task = self.bus.send_periodic(
-            can.Message(
-                arbitration_id=self.board.start_update_can_id,
-                data=[],
-                is_extended_id=False,
-            ),
-            0.05
-        )
-        time.sleep(0.2)
-        task.stop()
+        for i in range(20):
+            self.bus.send(
+                can.Message(
+                    arbitration_id=self.board.start_update_can_id,
+                    data=[],
+                    is_extended_id=False,
+                )
+            )
+            
+            time.sleep(0.05)
         
         return (
             self._await_can_msg(validator=_validatorUpdate, timeout=self.timeout)
