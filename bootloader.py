@@ -20,6 +20,7 @@ ERASE_SECTOR_CAN_ID = 1000
 PROGRAM_CAN_ID = 1001
 VERIFY_CAN_ID = 1002
 BOOT_CAN_START = 1012
+GO_TO_APP = 1013
 
 # CAN reply message IDs.
 ERASE_SECTOR_COMPLETE_CAN_ID = 1010
@@ -78,7 +79,7 @@ class Bootloader:
             )
         )
 
-        for i in range(20):
+        for i in range(5):
             self.bus.send(
                 can.Message(
                     arbitration_id=self.board.start_update_can_id,
@@ -87,7 +88,7 @@ class Bootloader:
                 )
             )
             
-            time.sleep(0.05)
+            time.sleep(0.250)
         
         return (
             self._await_can_msg(validator=_validatorUpdate, timeout=self.timeout)
@@ -239,6 +240,12 @@ class Bootloader:
 
         self.ui_callback("Verifying programming", self.size_bytes(), self.size_bytes())
         time.sleep(0.5)
+        
+        for i in range(10):
+            self.bus.send(
+                can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False)
+            )
+            time.sleep(0.250)
 
     def erase(self) -> None:
         """
