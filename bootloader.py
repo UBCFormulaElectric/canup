@@ -65,17 +65,14 @@ class Bootloader:
             """Validate that we've received the "update ack" msg."""
             return True if msg.arbitration_id == self.board.update_ack_can_id else None
 
-        for i in range(5):
-            self.bus.send(
-                can.Message(
-                    arbitration_id=self.board.start_update_can_id,
-                    data=[],
-                    is_extended_id=False,
-                )
+        self.bus.send(
+            can.Message(
+                arbitration_id=self.board.start_update_can_id,
+                data=[],
+                is_extended_id=False,
             )
-            
-            time.sleep(0.250)
-        
+        )
+
         return (
             self._await_can_msg(validator=_validatorUpdate, timeout=self.timeout)
             is not None
