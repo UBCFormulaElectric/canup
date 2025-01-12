@@ -82,7 +82,7 @@ STM32H733_MCU = Microcontroller(
         for sector_id, base, size_kb, write_protect in [
             # Sectors 0 and 1 is taken up by loader and boot code, so mark it as write-protect.
             (0, 0x08000000, 128, True),  # Sector 0
-            (1, 0x08020000, 128, True),  # Sector 1
+            (1, 0x08020000, 128, False),  # Sector 1
             (2, 0x08040000, 128, False),  # Sector 2
             (3, 0x08060000, 128, False),  # Sector 3
             (4, 0x08080000, 128, False),  # Sector 4

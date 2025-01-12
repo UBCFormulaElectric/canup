@@ -62,7 +62,7 @@ class Bootloader:
         """
 
         def _validatorUpdate(msg: can.Message) -> bool:
-            """Validate that we've received the "update ack" msg."""
+            """Validate that we've received the "start update ack" msg."""
             return True if msg.arbitration_id == self.board.update_ack_can_id else None
 
         self.bus.send(
@@ -183,6 +183,8 @@ class Bootloader:
         def _intersect(a_min, a_max, b_min, b_max):
             """1-D intersection to check if an app's hex and a flash sector share any addresses."""
             return a_max >= b_min and b_max >= a_min
+
+        time.sleep(0.5)
 
         if not self.start_update():
             raise RuntimeError(
