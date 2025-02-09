@@ -41,7 +41,7 @@ def ui_callback(description, total, completed):
 
 def update(configs: List[boards.Board], build_dir: str) -> None:
     """Update and handle UI."""
-    #push all boards into bootloader
+    # push all boards into bootloader
     _begin_bootloader()
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)
@@ -74,13 +74,13 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
         live.console.log(
             f"[bold green]Firmware update successfully ({num_boards} board{'s' if num_boards > 1 else ''} updated)"
         )
-        #push all boards out of bootlader
+        # push all boards out of bootlader
         _leave_bootloader()
 
 
 def erase(configs: List[boards.Board]) -> None:
     """Erase and handle UI."""
-    #push all boards into bootloader
+    # push all boards into bootloader
     _begin_bootloader()
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)
@@ -102,28 +102,27 @@ def erase(configs: List[boards.Board]) -> None:
         live.console.log(
             f"[bold green]Erase successful ({num_boards} board{'s' if num_boards > 1 else ''} erased)"
         )
-    #push all boards out of bootlaoder
-    _leave_bootloader()        
+    # push all boards out of bootlaoder
+    _leave_bootloader()
+
 
 def _begin_bootloader():
-    bus.send(
-        can.Message(
-            arbitration_id= BOOT_CAN_START,
-            data=[],
-            is_extended_id=False,
-        )
-    )
-    
-def _leave_bootloader():
-    for i in range(10):
+    for i in range(5):
         bus.send(
             can.Message(
-                arbitration_id=GO_TO_APP, 
-                data=[], 
-                is_extended_id=False
+                arbitration_id=BOOT_CAN_START,
+                data=[],
+                is_extended_id=False,
             )
         )
-        time.sleep(0.250)
+        time.sleep(0.01)
+
+
+def _leave_bootloader():
+    for i in range(5):
+        bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
+        time.sleep(0.01)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -131,7 +130,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--channel", type=str, default="PCAN_USBBUS1", help="python-can channel"
     )
-    parser.add_argument("--bit_rate", type=int, default=500000, help="CAN bus bit rate")
+    parser.add_argument(
+        "--bit_rate", type=int, default=1000000, help="CAN bus bit rate"
+    )
     parser.add_argument(
         "--config",
         "-c",
