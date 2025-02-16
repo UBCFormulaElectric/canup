@@ -42,7 +42,14 @@ def ui_callback(description, total, completed):
 def update(configs: List[boards.Board], build_dir: str) -> None:
     """Update and handle UI."""
     # push all boards into bootloader
-    _begin_bootloader()
+    bus.send(
+        can.Message(
+            arbitration_id=BOOT_CAN_START,
+            data=[0],
+            is_extended_id=False,
+        )
+    )
+
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)
         num_boards = len(configs)
@@ -74,14 +81,23 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
         live.console.log(
             f"[bold green]Firmware update successfully ({num_boards} board{'s' if num_boards > 1 else ''} updated)"
         )
+
         # push all boards out of bootlader
-        _leave_bootloader()
+        bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
 
 
 def erase(configs: List[boards.Board]) -> None:
     """Erase and handle UI."""
     # push all boards into bootloader
-    _begin_bootloader()
+    bus.send(
+        can.Message(
+            arbitration_id=BOOT_CAN_START,
+            data=[],
+            is_extended_id=False,
+        ),
+        timeout=10,
+    )
+
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)
         num_boards = len(configs)
@@ -102,26 +118,9 @@ def erase(configs: List[boards.Board]) -> None:
         live.console.log(
             f"[bold green]Erase successful ({num_boards} board{'s' if num_boards > 1 else ''} erased)"
         )
+
     # push all boards out of bootlaoder
-    _leave_bootloader()
-
-
-def _begin_bootloader():
-    for i in range(5):
-        bus.send(
-            can.Message(
-                arbitration_id=BOOT_CAN_START,
-                data=[],
-                is_extended_id=False,
-            )
-        )
-        time.sleep(0.01)
-
-
-def _leave_bootloader():
-    for i in range(5):
-        bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
-        time.sleep(0.01)
+    bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
 
 
 if __name__ == "__main__":
