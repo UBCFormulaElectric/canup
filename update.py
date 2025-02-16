@@ -49,6 +49,7 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
             is_extended_id=False,
         )
     )
+    time.sleep(0.1)
 
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)
@@ -97,6 +98,7 @@ def erase(configs: List[boards.Board]) -> None:
         ),
         timeout=10,
     )
+    time.sleep(0.1)
 
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)

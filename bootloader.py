@@ -61,8 +61,8 @@ class Bootloader:
 
         """
 
-        def _validatorUpdate(msg: can.Message) -> bool:
-            """Validate that we've received the "start update ack" msg."""
+        def _validator(msg: can.Message) -> bool:
+            """Validate that we've received the "update ack" msg."""
             return True if msg.arbitration_id == self.board.update_ack_can_id else None
 
         self.bus.send(
@@ -72,10 +72,8 @@ class Bootloader:
                 is_extended_id=False,
             )
         )
-
         return (
-            self._await_can_msg(validator=_validatorUpdate, timeout=self.timeout)
-            is not None
+            self._await_can_msg(validator=_validator, timeout=self.timeout) is not None
         )
 
     def erase_sectors(self, sectors) -> bool:
@@ -184,12 +182,12 @@ class Bootloader:
             """1-D intersection to check if an app's hex and a flash sector share any addresses."""
             return a_max >= b_min and b_max >= a_min
 
-        time.sleep(0.5)
-
         if not self.start_update():
             raise RuntimeError(
                 f"Bootloader for {self.board.name} did not respond to command to start a firmware update."
             )
+
+        time.sleep(0.1)
 
         # To speedup programming, only erase the sectors used by the app.
         app_flash_sectors = [
