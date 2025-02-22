@@ -131,9 +131,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--channel", type=str, default="PCAN_USBBUS1", help="python-can channel"
     )
-    parser.add_argument(
-        "--bit_rate", type=int, default=1000000, help="CAN bus bit rate"
-    )
+    parser.add_argument("--bit_rate", type=int, default=500000, help="CAN bus bit rate")
     parser.add_argument(
         "--config",
         "-c",
