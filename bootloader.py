@@ -4,6 +4,7 @@ bootloader.py
 Class used to interface with a embedded CAN bootloader.
 
 """
+
 from typing import Callable, Optional
 import math
 import can
@@ -185,6 +186,8 @@ class Bootloader:
             raise RuntimeError(
                 f"Bootloader for {self.board.name} did not respond to command to start a firmware update."
             )
+
+        time.sleep(0.1)
 
         # To speedup programming, only erase the sectors used by the app.
         app_flash_sectors = [

@@ -10,6 +10,7 @@ import os
 from typing import List
 
 import can
+import time
 import intelhex
 from rich.console import Console, Group
 from rich.live import Live
@@ -17,6 +18,9 @@ from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn
 
 import boards
 import bootloader
+
+BOOT_CAN_START = 1012
+GO_TO_APP = 1013
 
 console = Console()
 status = console.status("Status")
@@ -37,6 +41,16 @@ def ui_callback(description, total, completed):
 
 def update(configs: List[boards.Board], build_dir: str) -> None:
     """Update and handle UI."""
+    # push all boards into bootloader
+    bus.send(
+        can.Message(
+            arbitration_id=BOOT_CAN_START,
+            data=[0],
+            is_extended_id=False,
+        )
+    )
+    time.sleep(0.1)
+
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)
         num_boards = len(configs)
@@ -69,9 +83,23 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
             f"[bold green]Firmware update successfully ({num_boards} board{'s' if num_boards > 1 else ''} updated)"
         )
 
+        # push all boards out of bootlader
+        bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
+
 
 def erase(configs: List[boards.Board]) -> None:
     """Erase and handle UI."""
+    # push all boards into bootloader
+    bus.send(
+        can.Message(
+            arbitration_id=BOOT_CAN_START,
+            data=[],
+            is_extended_id=False,
+        ),
+        timeout=10,
+    )
+    time.sleep(0.1)
+
     with Live(Group(status, progress), transient=True) as live:
         config_name = ", ".join(board.name for board in configs)
         num_boards = len(configs)
@@ -92,6 +120,9 @@ def erase(configs: List[boards.Board]) -> None:
         live.console.log(
             f"[bold green]Erase successful ({num_boards} board{'s' if num_boards > 1 else ''} erased)"
         )
+
+    # push all boards out of bootlaoder
+    bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
 
 
 if __name__ == "__main__":
