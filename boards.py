@@ -35,6 +35,7 @@ class Board:
     name: str
     start_update_can_id: int
     update_ack_can_id: int
+    boot_load_bin_can_id : int
     mcu: Microcontroller
     path: str
 
@@ -97,6 +98,7 @@ quadruna_VC = Board(
     name="VC",
     start_update_can_id=1210,
     update_ack_can_id=1211,
+    boot_load_bin_can_id=500,
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "quadruna", "VC", "quadruna_VC_app_metadata.hex"),
 )
@@ -104,6 +106,7 @@ quadruna_BMS = Board(
     name="BMS",
     start_update_can_id=1200,
     update_ack_can_id=1201,
+    boot_load_bin_can_id=400,
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "quadruna", "BMS", "quadruna_BMS_app_metadata.hex"),
 )
@@ -111,6 +114,7 @@ quadruna_FSM = Board(
     name="FSM",
     start_update_can_id=1220,
     update_ack_can_id=1221,
+    boot_load_bin_can_id=600,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quadruna", "FSM", "quadruna_FSM_app_metadata.hex"),
 )
@@ -118,6 +122,7 @@ quadruna_RSM = Board(
     name="RSM",
     start_update_can_id=1230,
     update_ack_can_id=1231,
+    boot_load_bin_can_id=700,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quadruna", "RSM", "quadruna_RSM_app_metadata.hex"),
 )
@@ -125,6 +130,7 @@ quadruna_CRIT = Board(
     name="CRIT",
     start_update_can_id=1240,
     update_ack_can_id=1241,
+    boot_load_bin_can_id=900,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quadruna", "CRIT", "quadruna_CRIT_app_metadata.hex"),
 )
@@ -132,9 +138,12 @@ h7dev = Board(
     name="h7dev",
     start_update_can_id=1300,
     update_ack_can_id=1301,
+    boot_load_bin_can_id=2000, # random number.... NEEDS TO BE CORRECTED 
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
 )
+
+#TODO: add DAM board config
 
 CONFIGS = {
     "VC": [quadruna_VC],

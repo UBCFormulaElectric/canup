@@ -34,6 +34,9 @@ BOOT_STATUS_NO_APP = 2
 # The minimum amount of data the microcontroller can program at a time.
 MIN_PROG_SIZE_BYTES = 32
 
+ALL_PACKETS_VALID = 0xFFFFFFFFFFFFFFFF
+WINDOW_SIZE = 64 
+
 
 class Bootloader:
     def __init__(
@@ -49,6 +52,7 @@ class Bootloader:
         self.board = board
         self.timeout = timeout
         self.ui_callback = ui_callback
+        self.dropped_packets = set()
 
     def start_update(self) -> bool:
         """
@@ -123,21 +127,53 @@ class Bootloader:
         Program the binary into flash. There is no CAN handshake here to reduce
         latency during programming. Also, the bootloader will verify the app's code is valid
         by computing a checksum.
-
         """
+
+        # updated changes: built a TCP sequence number inspired packet validity checker. Essentially we have 64 of CAN IDs for each board
+        # reserved for bootloading. These can ids represent sequential ids for each packet in a 64 packet window. On the board side, the board expects a 
+        # specific can id (starts with 1 and increments up to 64) if it matches then the board sets the respective bit in its return message (1 packet (1 indexed) = 0th bit (0 indexed))
+        # after 64 packets it returns a 64 bit message describing if the packet was recieved correctly (1 = yes, 0 = no). Based on this message we can populate a set containing a 
+        # tuple (address, msg) after our first tranmission if the set of missed packets is not empty we send a START_RETRANSMISSION MESSAGE which expects sequential CAN ids within the same 1-64 range
+        #  however, now for each packet we do not slide our window until a packet has been acked and each packet will have a returned ack status back in comparison to the earlier 64 packs
+        # this will continue until the set is empty and then send an end tranmission message  
+
+        packet_in_window_index = 0
+
+        def _validator(msg: can.Message):
+            "Validate that mem was programmed successfully"
+            print(f"can id is {msg.arbitration_id}")
+            if msg.arbitration_id == (self.board.boot_load_bin_can_id + WINDOW_SIZE) and msg.data == ALL_PACKETS_VALID:
+                return True
+            
+            status_msg_int = int.from_bytes(msg.data, byteorder="little")
+            dropped_packets_pos = ALL_PACKETS_VALID ^ status_msg_int # this will set create a mask where all the dropped backet positions are 1 and not dropped are 0
+
+            for pos in range(WINDOW_SIZE):
+                if dropped_packets_pos & (1 << pos) != 0:
+                    # since we increment memory address by 8 bytes at a time and we know that our current address is pointing to the highest 8-byte associated to the window 
+                    # we want to save the address assocaited to this particular message
+                    self.dropped_packets.add(address - (WINDOW_SIZE - pos) * 8)
+                    print(f"Address is {address}\n")
+                    print(f"Packet dropped associated to bin address {address - (WINDOW_SIZE - pos) * 8}\n") #debugging
+            return True # defaulting to true for debugging 
+
         for i, address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
         ):
             if self.ui_callback and i % 128 == 0:
                 self.ui_callback("Programming data", self.size_bytes(), i * 8)
-
             data = [self.ih[address + i] for i in range(0, 8)]
+
             self.bus.send(
                 can.Message(
-                    arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
+                    arbitration_id=self.board.boot_load_bin_can_id + packet_in_window_index, data=data, is_extended_id=False
                 )
             )
+            if packet_in_window_index == WINDOW_SIZE - 1:
+                if not self._await_can_msg(validator=_validator, timeout=self.timeout):
+                    return False
 
+            packet_in_window_index = (packet_in_window_index + 1) % WINDOW_SIZE 
             # Empirically, this tiny delay between messages seems to improve reliability.
             time.sleep(0.0005)
 
@@ -177,7 +213,6 @@ class Bootloader:
         Run the update procedure for this bootloader.
 
         """
-
         def _intersect(a_min, a_max, b_min, b_max):
             """1-D intersection to check if an app's hex and a flash sector share any addresses."""
             return a_max >= b_min and b_max >= a_min
