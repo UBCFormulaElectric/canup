@@ -142,20 +142,21 @@ class Bootloader:
         def _validator(msg: can.Message):
             "Validate that mem was programmed successfully"
             print(f"can id is {msg.arbitration_id}")
-            if msg.arbitration_id == (self.board.boot_load_bin_can_id + WINDOW_SIZE) and msg.data == ALL_PACKETS_VALID:
-                return True
+            # if msg.arbitration_id == (self.board.boot_load_bin_can_id + WINDOW_SIZE) and msg.data == ALL_PACKETS_VALID:
+            #     return True
             
-            status_msg_int = int.from_bytes(msg.data, byteorder="little")
-            dropped_packets_pos = ALL_PACKETS_VALID ^ status_msg_int # this will set create a mask where all the dropped backet positions are 1 and not dropped are 0
+            # status_msg_int = int.from_bytes(msg.data, byteorder="little")
+            # dropped_packets_pos = ALL_PACKETS_VALID ^ status_msg_int # this will set create a mask where all the dropped backet positions are 1 and not dropped are 0
+            # print(f"{}")
 
-            for pos in range(WINDOW_SIZE):
-                if dropped_packets_pos & (1 << pos) != 0:
-                    # since we increment memory address by 8 bytes at a time and we know that our current address is pointing to the highest 8-byte associated to the window 
-                    # we want to save the address assocaited to this particular message
-                    self.dropped_packets.add(address - (WINDOW_SIZE - pos) * 8)
-                    print(f"Address is {address}\n")
-                    print(f"Packet dropped associated to bin address {address - (WINDOW_SIZE - pos) * 8}\n") #debugging
-            return True # defaulting to true for debugging 
+            # for pos in range(WINDOW_SIZE):
+            #     if dropped_packets_pos & (1 << pos) != 0:
+            #         # since we increment memory address by 8 bytes at a time and we know that our current address is pointing to the highest 8-byte associated to the window 
+            #         # we want to save the address assocaited to this particular message
+            #         self.dropped_packets.add(address - (WINDOW_SIZE - pos) * 8)
+            #         print(f"Address is {address}\n")
+            #         print(f"Packet dropped associated to bin address {address - (WINDOW_SIZE - pos) * 8}\n") #debugging
+            # return True # defaulting to true for debugging 
 
         for i, address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
@@ -164,14 +165,15 @@ class Bootloader:
                 self.ui_callback("Programming data", self.size_bytes(), i * 8)
             data = [self.ih[address + i] for i in range(0, 8)]
 
+            print(f"Sent Can Id: {self.board.boot_load_bin_can_id + packet_in_window_index}")
             self.bus.send(
                 can.Message(
                     arbitration_id=self.board.boot_load_bin_can_id + packet_in_window_index, data=data, is_extended_id=False
                 )
             )
-            if packet_in_window_index == WINDOW_SIZE - 1:
-                if not self._await_can_msg(validator=_validator, timeout=self.timeout):
-                    return False
+            # if packet_in_window_index == WINDOW_SIZE - 1:
+            #     if not self._await_can_msg(validator=_validator, timeout=self.timeout):
+            #         return False
 
             packet_in_window_index = (packet_in_window_index + 1) % WINDOW_SIZE 
             # Empirically, this tiny delay between messages seems to improve reliability.
