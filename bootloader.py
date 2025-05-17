@@ -20,6 +20,9 @@ ERASE_SECTOR_CAN_ID = 1000
 PROGRAM_CAN_ID = 1001
 VERIFY_CAN_ID = 1002
 
+NAK_ID = 0
+NAK_TIMEOUT = 0.1
+
 # CAN reply message IDs.
 ERASE_SECTOR_COMPLETE_CAN_ID = 1010
 APP_VALIDITY_CAN_ID = 1011
@@ -54,6 +57,7 @@ class Bootloader:
         self.timeout = timeout
         self.ui_callback = ui_callback
         self.dropped_packets = set()
+        self.__transmission_address = 0 
 
     def start_update(self) -> bool:
         """
@@ -130,56 +134,44 @@ class Bootloader:
         by computing a checksum.
         """
 
-        # updated changes: built a TCP sequence number inspired packet validity checker. Essentially we have 64 of CAN IDs for each board
-        # reserved for bootloading. These can ids represent sequential ids for each packet in a 64 packet window. On the board side, the board expects a 
-        # specific can id (starts with 1 and increments up to 64) if it matches then the board sets the respective bit in its return message (1 packet (1 indexed) = 0th bit (0 indexed))
-        # after 64 packets it returns a 64 bit message describing if the packet was recieved correctly (1 = yes, 0 = no). Based on this message we can populate a set containing a 
-        # tuple (address, msg) after our first tranmission if the set of missed packets is not empty we send a START_RETRANSMISSION MESSAGE which expects sequential CAN ids within the same 1-64 range
-        #  however, now for each packet we do not slide our window until a packet has been acked and each packet will have a returned ack status back in comparison to the earlier 64 packs
-        # this will continue until the set is empty and then send an end tranmission message  
-
-        packet_in_window_index = 0
-
+        # updated TCP inspired can bootloading: sender will send packet with can id's representing their memory address. The reciever will expect a can ID, of the sender can ID and reciever can ID match all is good, if there is a miss match the board will transmit the excepted can ID back.
+        # if the expected Can ID is a multiple of 4 it will directly be sent back to the user to begin retransmission at that address, if it is not an interval of 4 then retransmision is restarted at the closests (smaller) interval of 4. Note that a nuiassnace that we have to figure out is that 
+        # if we do want to move back to the closest interval of 4  then we need to figure out how to reflash adddresses that were already flashed (ie if its address 247 and the closest interval of 4 is 244) then we will attempt to reflash 244-246 even though they have already been flashed. Now with the 
+        # stm32s to write to flash memory we need to first erase it. Now if that is the case we need to figure out how to erase as the stm32 can only erase sectors at a time which is 16kb.... I am unsure on what happens if we try to flash memory that has not been erased. If it retains its originally value that that would be best and we can jsut do redundant flashing until we 
+        # get to the address that actually needs to be reflashed.
+        
         def _validator(msg: can.Message):
             # Ignore all known status messages
             print(f"Can ID that come through {msg.arbitration_id}\n")
-            if msg.arbitration_id in BOARD_10HZ_STATUS_ID:
-                return None  # Not relevant, keep waiting
-            
-            status_msg_int = int.from_bytes(msg.data, byteorder="little")
-            expectedID = self.board.boot_load_bin_can_id + WINDOW_SIZE
-
-            if msg.arbitration_id ==  expectedID and status_msg_int == ALL_PACKETS_VALID:
-                    print(f"this was hit\n status message back{status_msg_int}\n")
-                    return True
+            if msg.arbitration_id ==  NAK_ID:
+                self.__transmission_address = int.from_bytes(msg.data, "little")
+                return False
             else:
-                dropped_mask = ALL_PACKETS_VALID ^ status_msg_int
-                for pos in range(WINDOW_SIZE):
-                    if dropped_mask & (1 << pos):
-                        # Calculate dropped address
-                        dropped_address = expectedID - (WINDOW_SIZE - pos) * 8
-                        self.dropped_packets.add(dropped_address)
-            print(f"number of dropped packets {len(self.dropped_packets)}\n")
-            return True  # Still a valid response, even if not perfect
+                return True 
 
-            
-        for i, address in enumerate(
+        for i, self.__transmission_address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
         ):
             if self.ui_callback and i % 128 == 0:
                 self.ui_callback("Programming data", self.size_bytes(), i * 8)
-            data = [self.ih[address + i] for i in range(0, 8)]
+            data = [self.ih[self.__transmission_address + i] for i in range(0, 8)]
 
             self.bus.send(
                 can.Message(
-                    arbitration_id=self.board.boot_load_bin_can_id + packet_in_window_index, data=data, is_extended_id=False
+                    arbitration_id= self.__transmission_address, data=data, is_extended_id=False
                 )
             )
-            if packet_in_window_index == WINDOW_SIZE - 1:
-                if not self._await_can_msg(validator=_validator, timeout=self.timeout):
-                    return False
 
-            packet_in_window_index = (packet_in_window_index + 1) % WINDOW_SIZE 
+            nak = ~self._await_can_msg(_validator, timeout=NAK_TIMEOUT)
+
+            if nak == False:
+                print(f"WE LIT!!!!! PACKET {self.__transmission_address} recieved\n")
+                
+            elif nak == True: 
+                print(f"PACKET DROPPED AT {self.__transmission_address}\n")
+            else:
+                print("TIMEOUT\n")
+
             # Empirically, this tiny delay between messages seems to improve reliability.
             time.sleep(0.0005)
 
