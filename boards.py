@@ -38,6 +38,16 @@ class Board:
     mcu: Microcontroller
     path: str
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.name,
+                self.bootloader_id_range_start,
+                self.app_id_range_start,
+                self.mcu.name,
+            )
+        )
+
 
 STM32F412_MCU = Microcontroller(
     name="STM32F412xx",

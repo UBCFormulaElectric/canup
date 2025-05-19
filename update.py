@@ -8,6 +8,7 @@ Main driver script used to update code over the CAN bus.
 import argparse
 import os
 from typing import List
+import time
 
 import can
 import intelhex
@@ -49,10 +50,14 @@ def goto_bootloader(board_config: boards.Board):
         ),
         timeout=10,
     )
-    while True:
+    start_time = time.time()
+    while time.time() - start_time < 10:
         msg = bus.recv()
         if msg.arbitration_id == board_config.bootloader_id_range_start | 0x0:
             return
+    raise TimeoutError(
+        f"Failed to put {board_config.name} into application mode. Timeout after 10 seconds."
+    )
 
 
 def goto_app(board_config: boards.Board):
@@ -64,10 +69,14 @@ def goto_app(board_config: boards.Board):
         ),
         timeout=10,
     )
-    while True:
+    start_time = time.time()
+    while time.time() - start_time < 10:
         msg = bus.recv()
         if msg.arbitration_id == board_config.app_id_range_start + 0x0:
             return
+    raise TimeoutError(
+        f"Failed to put {board_config.name} into application mode. Timeout after 10 seconds."
+    )
 
 
 def update(configs: List[boards.Board], build_dir: str) -> None:
@@ -202,12 +211,11 @@ if __name__ == "__main__":
 
     # Load config and binary.
     c = list(
-        set(
-            [
-                boards.CONFIGS[config_name.strip()]
-                for config_name in args.config.split(",")
-            ]
-        )
+        {
+            board
+            for config_name in args.config.split(",")
+            for board in boards.CONFIGS[config_name.strip()]
+        }
     )
     with can.interface.Bus(
         interface=args.bus, channel=args.channel, bitrate=args.bit_rate
