@@ -51,12 +51,12 @@ def goto_bootloader(board_config: boards.Board):
         timeout=10,
     )
     start_time = time.time()
-    while time.time() - start_time < 10:
+    while time.time() - start_time < 5:
         msg = bus.recv()
         if msg.arbitration_id == board_config.bootloader_id_range_start | 0x0:
             return
     raise TimeoutError(
-        f"Failed to put {board_config.name} into application mode. Timeout after 10 seconds."
+        f"Failed to put {board_config.name} into boot mode. Waited 5 seconds for response."
     )
 
 
@@ -70,12 +70,12 @@ def goto_app(board_config: boards.Board):
         timeout=10,
     )
     start_time = time.time()
-    while time.time() - start_time < 10:
+    while time.time() - start_time < 5:
         msg = bus.recv()
         if msg.arbitration_id == board_config.app_id_range_start + 0x0:
             return
     raise TimeoutError(
-        f"Failed to put {board_config.name} into application mode. Timeout after 10 seconds."
+        f"Failed to put {board_config.name} into application mode. Waited 5 seconds for response."
     )
 
 
