@@ -95,28 +95,28 @@ STM32H733_MCU = Microcontroller(
 
 quintuna_FSM = Board(
     name="FSM",
-    start_update_can_id=590,
+    start_update_can_id=1012,
     update_ack_can_id=591,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "FSM", "quintuna_FSM_app_metadata.hex"),
 )
 quintuna_RSM = Board(
     name="RSM",
-    start_update_can_id=790,
+    start_update_can_id=1012,
     update_ack_can_id=791,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "RSM", "quintuna_RSM_app_metadata.hex"),
 )
 quintuna_CRIT = Board(
     name="CRIT",
-    start_update_can_id=890,
+    start_update_can_id=1012,
     update_ack_can_id=891,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "CRIT", "quintuna_CRIT_app_metadata.hex"),
 )
 h7dev = Board(
     name="h7dev",
-    start_update_can_id=1190,
+    start_update_can_id=1012,
     update_ack_can_id=1191,
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
