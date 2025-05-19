@@ -210,7 +210,7 @@ if __name__ == "__main__":
         )
     )
     with can.interface.Bus(
-            interface=args.bus, channel=args.channel, bitrate=args.bit_rate
+        interface=args.bus, channel=args.channel, bitrate=args.bit_rate
     ) as bus:
         if args.erase:
             erase(configs=c)
