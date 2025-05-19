@@ -26,14 +26,6 @@ progress = Progress(
     BarColumn(),
     DownloadColumn(),
 )
-steps_task = progress.add_task("Steps")
-
-
-def ui_callback(description, total, completed):
-    """Callback passed to bootloader to update UI."""
-    progress.update(
-        task_id=steps_task, total=total, description=description, completed=completed
-    )
 
 
 def goto_bootloader(board_config: boards.Board):
@@ -44,7 +36,7 @@ def goto_bootloader(board_config: boards.Board):
     """
     bus.send(
         can.Message(
-            arbitration_id=board_config.bootloader_id_range_start | 0x1,
+            arbitration_id=board_config.app_id_range_start + 8,
             data=[],
             is_extended_id=True,
         ),
@@ -60,6 +52,24 @@ def goto_bootloader(board_config: boards.Board):
     )
 
 
+def all_goto_bootloader(live: Live, configs: List[boards.Board]):
+    live.console.log("Putting all boards into bootloader mode")
+    # first put everybody into bootloader mode
+    bootload_task = progress.add_task("Jump to Bootloader")
+    for b_idx, board in enumerate(configs):
+        try:
+            goto_bootloader(board)
+            progress.update(
+                task_id=bootload_task,
+                total=len(configs),
+                completed=b_idx,
+                description=f"Putting {board.name} into bootloader mode",
+            )
+        except TimeoutError:
+            live.console.log(f"[red]Failed to put {board.name} into bootloader mode")
+            raise
+
+
 def goto_app(board_config: boards.Board):
     bus.send(
         can.Message(
@@ -72,10 +82,30 @@ def goto_app(board_config: boards.Board):
     start_time = time.time()
     while time.time() - start_time < 5:
         msg = bus.recv()
-        if msg.arbitration_id == board_config.app_id_range_start + 0x0:
+        if msg.arbitration_id == board_config.app_id_range_start + 0:
             return
     raise TimeoutError(
         f"Failed to put {board_config.name} into application mode. Waited 5 seconds for response."
+    )
+
+
+def all_goto_app(live: Live, configs: List[boards.Board]):
+    live.console.log("Pushing all boards out of bootloader mode")
+    app_task = progress.add_task("Jump to App")
+    for b_idx, board in enumerate(configs):
+        try:
+            goto_app(board)
+            progress.update(
+                task_id=app_task,
+                total=len(configs),
+                completed=b_idx,
+                description=f"Putting {board.name} into application mode",
+            )
+        except TimeoutError:
+            live.console.log(f"[red]Failed to put {board.name} into application mode")
+            raise
+    live.console.log(
+        f"[bold green]All boards pushed out of bootloader mode successfully"
     )
 
 
@@ -85,20 +115,12 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
 
     # push all boards into bootloader
     with Live(Group(status, progress), transient=True) as live:
-        live.console.log("Putting all boards into bootloader mode")
-        # first put everybody into bootloader mode
-        for board in configs:
-            try:
-                goto_bootloader(board)
-            except TimeoutError:
-                live.console.log(
-                    f"[red]Failed to put {board.name} into bootloader mode"
-                )
-                raise
-
+        # push all boards into bootloader
+        all_goto_bootloader(live, configs)
         live.console.log(
             f"Updating firmware for boards: [blue bold]{', '.join(board.name for board in configs)}"
         )
+        steps_task = progress.add_task("Steps")
         for b_idx, board in enumerate(configs):
             # TODO do this in parallel
             progress.update(
@@ -113,7 +135,12 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
             bootloader.Bootloader(
                 bus=bus,
                 board=board,
-                ui_callback=ui_callback,
+                ui_callback=lambda description, total, completed: progress.update(
+                    task_id=steps_task,
+                    total=total,
+                    description=description,
+                    completed=completed,
+                ),
                 ih=intelhex.IntelHex(os.path.join(build_dir, board.path)),
             ).update()
             live.console.log(f"[green]{board.name} updated successfully")
@@ -121,20 +148,8 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
         live.console.log(
             f"[bold green]Firmware update successfully ({num_boards} board{'s' if num_boards > 1 else ''} updated)"
         )
-
-        # push all boards out of bootlader
-        live.console.log("Pushing all boards out of bootloader mode")
-        for board in configs:
-            try:
-                goto_app(board)
-            except TimeoutError:
-                live.console.log(
-                    f"[red]Failed to put {board.name} into application mode"
-                )
-                raise
-        live.console.log(
-            f"[bold green]All boards pushed out of bootloader mode successfully"
-        )
+        # push all boards out of bootloader
+        all_goto_app(live, configs)
 
 
 def erase(configs: List[boards.Board]) -> None:
@@ -156,13 +171,23 @@ def erase(configs: List[boards.Board]) -> None:
         live.console.log(
             f"Erasing with config: [blue bold]{', '.join(board.name for board in configs)}"
         )
+        steps_task = progress.add_task("Steps")
         for b_idx, board in enumerate(configs):
             # TODO do this in parallel
             status.update(f"Sending board {board.name} to bootloader")
             status.update(
                 f"Erasing board [yellow]{b_idx + 1}/{num_boards}[/]: [blue bold]{board.name}"
             )
-            bootloader.Bootloader(bus=bus, board=board, ui_callback=ui_callback).erase()
+            bootloader.Bootloader(
+                bus=bus,
+                board=board,
+                ui_callback=lambda description, total, completed: progress.update(
+                    task_id=steps_task,
+                    total=total,
+                    description=description,
+                    completed=completed,
+                ),
+            ).erase()
             live.console.log(f"[green]{board.name} erased successfully")
 
         live.console.log(

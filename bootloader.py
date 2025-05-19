@@ -63,11 +63,15 @@ class Bootloader:
 
         def _validator(msg: can.Message) -> bool:
             """Validate that we've received the "update ack" msg."""
-            return True if msg.arbitration_id == self.board.update_ack_can_id else None
+            return (
+                True
+                if msg.arbitration_id == self.board.bootloader_id_range_start | 0x1
+                else None
+            )
 
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.start_update_can_id,
+                arbitration_id=self.board.bootloader_id_range_start | 0x2,
                 data=[],
                 is_extended_id=False,
             )
