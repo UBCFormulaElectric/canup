@@ -33,8 +33,8 @@ class Microcontroller:
 @dataclasses.dataclass(frozen=True)
 class Board:
     name: str
-    start_update_can_id: int
-    update_ack_can_id: int
+    bootloader_id_range_start: int
+    app_id_range_start: int
     mcu: Microcontroller
     path: str
 
@@ -95,29 +95,29 @@ STM32H733_MCU = Microcontroller(
 
 quintuna_FSM = Board(
     name="FSM",
-    start_update_can_id=1012,
-    update_ack_can_id=591,
+    bootloader_id_range_start=0x10000000,
+    app_id_range_start=600,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "FSM", "quintuna_FSM_app_metadata.hex"),
 )
 quintuna_RSM = Board(
     name="RSM",
-    start_update_can_id=1012,
-    update_ack_can_id=791,
+    bootloader_id_range_start=0x14000000,
+    app_id_range_start=700,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "RSM", "quintuna_RSM_app_metadata.hex"),
 )
 quintuna_CRIT = Board(
     name="CRIT",
-    start_update_can_id=1012,
-    update_ack_can_id=891,
+    bootloader_id_range_start=0x18000000,
+    app_id_range_start=900,
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "CRIT", "quintuna_CRIT_app_metadata.hex"),
 )
 h7dev = Board(
     name="h7dev",
-    start_update_can_id=1012,
-    update_ack_can_id=1191,
+    bootloader_id_range_start=0x20000000,
+    app_id_range_start=1200,
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
 )
