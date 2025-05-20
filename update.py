@@ -36,15 +36,19 @@ def goto_bootloader(board_config: boards.Board):
     """
     bus.send(
         can.Message(
-            arbitration_id=board_config.app_id_range_start + 8,
+            # arbitration_id=board_config.app_id_range_start + 8,
+            arbitration_id=1012,
             data=[],
-            is_extended_id=True,
+            # is_extended_id=True,
+            is_extended_id=False,
         ),
         timeout=10,
     )
     start_time = time.time()
     while time.time() - start_time < 5:
-        msg = bus.recv()
+        msg = bus.recv(timeout=10)
+        if msg is None:
+            continue
         if msg.arbitration_id == board_config.bootloader_id_range_start | 0x0:
             return
     raise TimeoutError(
@@ -57,17 +61,19 @@ def all_goto_bootloader(live: Live, configs: List[boards.Board]):
     # first put everybody into bootloader mode
     bootload_task = progress.add_task("Jump to Bootloader")
     for b_idx, board in enumerate(configs):
+        progress.update(
+            task_id=bootload_task,
+            total=len(configs),
+            completed=b_idx,
+            description=f"Putting {board.name} into bootloader mode",
+        )
         try:
             goto_bootloader(board)
-            progress.update(
-                task_id=bootload_task,
-                total=len(configs),
-                completed=b_idx,
-                description=f"Putting {board.name} into bootloader mode",
-            )
         except TimeoutError:
             live.console.log(f"[red]Failed to put {board.name} into bootloader mode")
             raise
+    progress.remove_task(bootload_task)
+    live.console.log(f"[bold green]All boards pushed into bootloader mode successfully")
 
 
 def goto_app(board_config: boards.Board):

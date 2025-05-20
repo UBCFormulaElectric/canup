@@ -16,13 +16,11 @@ import boards
 # Consolidated-Firmware/firmware/boot/shared/config.h
 
 # CAN command message IDs.
-ERASE_SECTOR_CAN_ID = 1000
-PROGRAM_CAN_ID = 1001
-VERIFY_CAN_ID = 1002
-
-# CAN reply message IDs.
-ERASE_SECTOR_COMPLETE_CAN_ID = 1010
-APP_VALIDITY_CAN_ID = 1011
+ERASE_SECTOR_CAN_ID_LOWBITS = 0x4
+ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS = 0x5
+PROGRAM_CAN_ID_LOWBITS = 0x6
+VERIFY_CAN_ID_LOWBITS = 0x7
+APP_VALIDITY_CAN_ID_LOWBITS = 0x8
 
 # Verify response options.
 # Keep in sync with:
@@ -65,15 +63,15 @@ class Bootloader:
             """Validate that we've received the "update ack" msg."""
             return (
                 True
-                if msg.arbitration_id == self.board.bootloader_id_range_start | 0x1
+                if msg.arbitration_id == self.board.bootloader_id_range_start | 0x2
                 else None
             )
 
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.bootloader_id_range_start | 0x2,
+                arbitration_id=self.board.bootloader_id_range_start | 0x1,
                 data=[],
-                is_extended_id=False,
+                is_extended_id=True,
             )
         )
         return (
@@ -93,7 +91,13 @@ class Bootloader:
 
         def _validator(msg: can.Message):
             """Validate that we've received the "erase complete" msg."""
-            return True if msg.arbitration_id == ERASE_SECTOR_COMPLETE_CAN_ID else None
+            return (
+                True
+                if msg.arbitration_id
+                == self.board.bootloader_id_range_start
+                | ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS
+                else None
+            )
 
         erase_size = sum([sector.size for sector in sectors])
         erase_progress = 0
@@ -107,9 +111,10 @@ class Bootloader:
 
             self.bus.send(
                 can.Message(
-                    arbitration_id=ERASE_SECTOR_CAN_ID,
+                    arbitration_id=self.board.bootloader_id_range_start
+                    | ERASE_SECTOR_CAN_ID_LOWBITS,
                     data=[sector.id],
-                    is_extended_id=False,
+                    is_extended_id=True,
                 )
             )
             if not self._await_can_msg(validator=_validator, timeout=self.timeout):
@@ -138,7 +143,10 @@ class Bootloader:
             data = [self.ih[address + i] for i in range(0, 8)]
             self.bus.send(
                 can.Message(
-                    arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
+                    arbitration_id=self.board.bootloader_id_range_start
+                    | PROGRAM_CAN_ID_LOWBITS,
+                    data=data,
+                    is_extended_id=True,
                 )
             )
 
@@ -165,10 +173,20 @@ class Bootloader:
 
         def _validator(msg: can.Message):
             """Validate that we've received the "app validity" msg, and the app is valid."""
-            return True if msg.arbitration_id == APP_VALIDITY_CAN_ID else None
+            return (
+                True
+                if msg.arbitration_id
+                == self.board.bootloader_id_range_start | APP_VALIDITY_CAN_ID_LOWBITS
+                else None
+            )
 
         self.bus.send(
-            can.Message(arbitration_id=VERIFY_CAN_ID, data=[], is_extended_id=False)
+            can.Message(
+                arbitration_id=self.board.bootloader_id_range_start
+                | VERIFY_CAN_ID_LOWBITS,
+                data=[],
+                is_extended_id=True,
+            )
         )
         rx_msg = self._await_can_msg(_validator)
         if rx_msg is None:
