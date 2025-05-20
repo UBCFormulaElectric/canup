@@ -34,6 +34,12 @@ MIN_PROG_SIZE_BYTES = 32
 
 
 class Bootloader:
+    bus: can.Bus
+    ih: intelhex.IntelHex
+    board: boards.Board
+    timeout: int
+    ui_callback: Callable
+
     def __init__(
         self,
         bus: can.Bus,
@@ -42,11 +48,54 @@ class Bootloader:
         ih: intelhex.IntelHex = None,
         timeout: int = 5,
     ) -> None:
-        self.bus = bus
-        self.ih = ih
-        self.board = board
-        self.timeout = timeout
-        self.ui_callback = ui_callback
+        self.bus: can.Bus = bus
+        self.ih: intelhex.IntelHex = ih
+        self.board: boards.Board = board
+        self.timeout: int = timeout
+        self.ui_callback: Callable = ui_callback
+
+    def goto_bootloader(self) -> bool:
+        """
+        Pushes all boards to bootloader mode.
+        :throws: TimeoutError if the boards do not respond
+        :return: None
+        """
+        self.bus.send(
+            can.Message(
+                # arbitration_id=board_config.app_id_range_start + 8,
+                arbitration_id=1012,
+                data=[],
+                # is_extended_id=True,
+                is_extended_id=False,
+            ),
+            timeout=10,
+        )
+        # TODO add retry protocol
+        return (
+            self._await_can_msg(
+                lambda msg: msg.arbitration_id
+                == (self.board.boot_id_range_start | 0x0),
+                5,
+            )
+            is not None
+        )
+
+    def goto_app(self) -> bool:
+        self.bus.send(
+            can.Message(
+                arbitration_id=self.board.boot_id_range_start | 0x3,
+                data=[],
+                is_extended_id=True,
+            ),
+            timeout=10,
+        )
+        # TODO add retry protocol
+        return (
+            self._await_can_msg(
+                lambda msg: msg.arbitration_id == self.board.app_id_range_start + 0, 5
+            )
+            is not None
+        )
 
     def start_update(self) -> bool:
         """
@@ -63,13 +112,13 @@ class Bootloader:
             """Validate that we've received the "update ack" msg."""
             return (
                 True
-                if msg.arbitration_id == self.board.bootloader_id_range_start | 0x2
+                if msg.arbitration_id == self.board.boot_id_range_start | 0x2
                 else None
             )
 
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.bootloader_id_range_start | 0x1,
+                arbitration_id=self.board.boot_id_range_start | 0x1,
                 data=[],
                 is_extended_id=True,
             )
@@ -94,8 +143,7 @@ class Bootloader:
             return (
                 True
                 if msg.arbitration_id
-                == self.board.bootloader_id_range_start
-                | ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS
+                == self.board.boot_id_range_start | ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS
                 else None
             )
 
@@ -111,7 +159,7 @@ class Bootloader:
 
             self.bus.send(
                 can.Message(
-                    arbitration_id=self.board.bootloader_id_range_start
+                    arbitration_id=self.board.boot_id_range_start
                     | ERASE_SECTOR_CAN_ID_LOWBITS,
                     data=[sector.id],
                     is_extended_id=True,
@@ -143,7 +191,7 @@ class Bootloader:
             data = [self.ih[address + i] for i in range(0, 8)]
             self.bus.send(
                 can.Message(
-                    arbitration_id=self.board.bootloader_id_range_start
+                    arbitration_id=self.board.boot_id_range_start
                     | PROGRAM_CAN_ID_LOWBITS,
                     data=data,
                     is_extended_id=True,
@@ -176,14 +224,13 @@ class Bootloader:
             return (
                 True
                 if msg.arbitration_id
-                == self.board.bootloader_id_range_start | APP_VALIDITY_CAN_ID_LOWBITS
+                == self.board.boot_id_range_start | APP_VALIDITY_CAN_ID_LOWBITS
                 else None
             )
 
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.bootloader_id_range_start
-                | VERIFY_CAN_ID_LOWBITS,
+                arbitration_id=self.board.boot_id_range_start | VERIFY_CAN_ID_LOWBITS,
                 data=[],
                 is_extended_id=True,
             )
@@ -291,16 +338,15 @@ class Bootloader:
         Helper function to await a CAN msg response within a timeout, with a validator function.
 
         """
+        assert validator is not None
+
         start = time.time()
         while time.time() - start < timeout:
-            rx_msg = self.bus.recv(timeout=1)
-            if rx_msg:
-                if validator:
-                    if validator(rx_msg) is True:
-                        return rx_msg
-                    if validator(rx_msg) is False:
-                        return False
-
+            rx_msg: can.Message = self.bus.recv(timeout=1)
+            if rx_msg is None:
+                continue
+            if validator(rx_msg):
+                return rx_msg
         return None
 
     def size_bytes(self) -> int:
