@@ -10,6 +10,8 @@ import math
 import can
 import time
 import intelhex
+from win32cryptcon import szOID_USER_CERTIFICATE
+
 import boards
 
 # Keep CAN protocol in sync with:
@@ -63,10 +65,10 @@ class Bootloader:
         self.bus.send(
             can.Message(
                 # arbitration_id=board_config.app_id_range_start + 8,
-                arbitration_id=1012,
+                arbitration_id=self.board.boot_id_range_start | 0x9,
                 data=[],
                 # is_extended_id=True,
-                is_extended_id=False,
+                is_extended_id=True,
             ),
             timeout=10,
         )
@@ -92,7 +94,7 @@ class Bootloader:
         # TODO add retry protocol
         return (
             self._await_can_msg(
-                lambda msg: msg.arbitration_id == self.board.boot_id_range_start | 0x9,
+                lambda msg: msg.arbitration_id == self.board.app_id_range_start + 0,
                 5,
             )
             is not None
@@ -190,18 +192,21 @@ class Bootloader:
                 self.ui_callback("Programming data", self.size_bytes(), i * 8)
 
             data = [self.ih[address + i] for i in range(0, 8)]
-            self.bus.send(
-                can.Message(
-                    arbitration_id=self.board.boot_id_range_start
-                    | PROGRAM_CAN_ID_LOWBITS,
-                    data=data,
-                    is_extended_id=True,
-                )
-            )
 
-            # Empirically, this tiny delay between messages seems to improve reliability.
-            time.sleep(0.001)
-
+            success = False
+            while not success:
+                try:
+                    self.bus.send(
+                        can.Message(
+                            arbitration_id=self.board.boot_id_range_start
+                            | PROGRAM_CAN_ID_LOWBITS,
+                            data=data,
+                            is_extended_id=True,
+                        )
+                    )
+                    success = True
+                except can.interfaces.vector.exceptions.VectorOperationError:
+                    pass
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
 
