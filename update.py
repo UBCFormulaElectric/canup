@@ -177,6 +177,10 @@ if __name__ == "__main__":
         help="Path to Consolidated-Firmware firmware build directory (build_fw_deploy)",
     )
     parser.add_argument("--erase", action="store_true", help="Erase app code")
+    parser.add_argument("--fd", action="store_true", help="Use FD mode")
+    parser.add_argument(
+        "--data_bitrate", type=int, default=4000000, help="CAN FD data bitrate"
+    )
     args = parser.parse_args()
 
     # Load config and binary.
@@ -188,7 +192,19 @@ if __name__ == "__main__":
         }
     )
     with can.interface.Bus(
-        interface=args.bus, channel=args.channel, bitrate=args.bit_rate
+        interface=args.bus,
+        channel=args.channel,
+        bitrate=args.bit_rate,
+        fd=args.fd,
+        data_bitrate=args.data_bitrate,
+        sjw_abr=20,
+        tseg1_abr=59,
+        tseg2_abr=20,
+        sam_abr=1,
+        sjw_dbr=4,
+        tseg1_dbr=15,
+        tseg2_dbr=4,
+        output_mode=0,
     ) as bus:
         if args.erase:
             erase(configs=c)
