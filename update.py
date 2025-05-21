@@ -10,7 +10,6 @@ import os
 from typing import List
 
 import can
-import time
 import intelhex
 from rich.console import Console, Group
 from rich.live import Live
@@ -19,9 +18,6 @@ from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn
 import boards
 import bootloader
 
-BOOT_CAN_START = 1012
-GO_TO_APP = 1013
-
 console = Console()
 status = console.status("Status")
 progress = Progress(
@@ -29,100 +25,133 @@ progress = Progress(
     BarColumn(),
     DownloadColumn(),
 )
-steps_task = progress.add_task("Steps")
 
 
-def ui_callback(description, total, completed):
-    """Callback passed to bootloader to update UI."""
-    progress.update(
-        task_id=steps_task, total=total, description=description, completed=completed
+def all_goto_bootloader(live: Live, bootloaders: List[bootloader.Bootloader]):
+    live.console.log("Putting all boards into bootloader mode")
+    # first put everybody into bootloader mode
+    bootload_task = progress.add_task("Jump to Bootloader")
+    for b_idx, bootload_board in enumerate(bootloaders):
+        progress.update(
+            task_id=bootload_task,
+            total=len(bootloaders),
+            completed=b_idx,
+            description=f"Putting {bootload_board.board.name} into bootloader mode",
+        )
+        if not bootload_board.goto_bootloader():
+            raise TimeoutError(
+                f"Failed to send bootloader command to {bootload_board.board.name}"
+            )
+    progress.remove_task(bootload_task)
+    live.console.log(f"[bold green]All boards pushed into bootloader mode successfully")
+
+
+def all_goto_app(live: Live, bootloaders: List[bootloader.Bootloader]):
+    live.console.log("Pushing all boards out of bootloader mode")
+    app_task = progress.add_task("Jump to App")
+    for b_idx, bootload_board in enumerate(bootloaders):
+        progress.update(
+            task_id=app_task,
+            total=len(bootloaders),
+            completed=b_idx,
+            description=f"Putting {bootload_board.board.name} into application mode",
+        )
+        if not bootload_board.goto_app():
+            raise TimeoutError(
+                "Failed to send application command to {bootload_board.board.name}"
+            )
+    progress.remove_task(app_task)
+    live.console.log(
+        f"[bold green]All boards pushed out of bootloader mode successfully"
     )
 
 
 def update(configs: List[boards.Board], build_dir: str) -> None:
     """Update and handle UI."""
-    # push all boards into bootloader
-    bus.send(
-        can.Message(
-            arbitration_id=BOOT_CAN_START,
-            data=[0],
-            is_extended_id=False,
+    num_boards = len(configs)
+    steps_task = progress.add_task("Steps")
+    bootloaders: List[bootloader.Bootloader] = [
+        bootloader.Bootloader(
+            bus=bus,
+            board=board,
+            ui_callback=lambda description, total, completed: progress.update(
+                task_id=steps_task,
+                total=total,
+                description=description,
+                completed=completed,
+            ),
+            ih=intelhex.IntelHex(os.path.join(build_dir, board.path)),
         )
-    )
-    time.sleep(0.1)
+        for board in configs
+    ]
 
+    # push all boards into bootloader
     with Live(Group(status, progress), transient=True) as live:
-        config_name = ", ".join(board.name for board in configs)
-        num_boards = len(configs)
-        live.console.log(f"Updating firmware for boards: [blue bold]{config_name}")
-
-        for i, board in enumerate(configs):
+        # push all boards into bootloader
+        all_goto_bootloader(live, bootloaders)
+        live.console.log(
+            f"Updating firmware for boards: [blue bold]{', '.join(board.name for board in configs)}"
+        )
+        for b_idx, bootload_board in enumerate(bootloaders):
+            # TODO do this in parallel
             progress.update(
                 task_id=steps_task,
                 total=0,
-                description=f"Starting update for {board.name}",
                 completed=0,
+                description=f"Starting update for {bootload_board.board.name}",
             )
             status.update(
-                f"Updating board [yellow]{i+1}/{num_boards}[/]: [blue bold]{board.name}"
+                f"Updating board [yellow]{b_idx + 1}/{num_boards}[/]: [blue bold]{bootload_board.board.name}"
             )
-
-            bin_path = os.path.join(build_dir, board.path)
-            ih = intelhex.IntelHex(bin_path)
-            boot_interface = bootloader.Bootloader(
-                bus=bus,
-                board=board,
-                ui_callback=ui_callback,
-                ih=ih,
-            )
-            boot_interface.update()
-
-            live.console.log(f"[green]{board.name} updated successfully")
-
+            bootload_board.update()
+            live.console.log(f"[green]{bootload_board.board.name} updated successfully")
+        progress.remove_task(steps_task)
         live.console.log(
             f"[bold green]Firmware update successfully ({num_boards} board{'s' if num_boards > 1 else ''} updated)"
         )
-
-        # push all boards out of bootlader
-        bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
+        # push all boards out of bootloader
+        all_goto_app(live, bootloaders)
 
 
 def erase(configs: List[boards.Board]) -> None:
     """Erase and handle UI."""
     # push all boards into bootloader
-    bus.send(
-        can.Message(
-            arbitration_id=BOOT_CAN_START,
-            data=[],
-            is_extended_id=False,
-        ),
-        timeout=10,
-    )
-    time.sleep(0.1)
+    num_boards = len(configs)
+    steps_task = progress.add_task("Steps")
+    bootloaders = [
+        bootloader.Bootloader(
+            bus=bus,
+            board=board,
+            ui_callback=lambda description, total, completed: progress.update(
+                task_id=steps_task,
+                total=total,
+                description=description,
+                completed=completed,
+            ),
+        )
+        for board in configs
+    ]
 
     with Live(Group(status, progress), transient=True) as live:
-        config_name = ", ".join(board.name for board in configs)
-        num_boards = len(configs)
-        live.console.log(f"Erasing with config: [blue bold]{config_name}")
+        all_goto_bootloader(live, bootloaders)
 
-        for i, board in enumerate(configs):
+        live.console.log(
+            f"Erasing with config: [blue bold]{', '.join(board.name for board in configs)}"
+        )
+        for b_idx, bootloader_board in enumerate(bootloaders):
+            # TODO do this in parallel
+            status.update(f"Sending board {bootloader_board.board.name} to bootloader")
             status.update(
-                f"Erasing board [yellow]{i+1}/{num_boards}[/]: [blue bold]{board.name}"
+                f"Erasing board [yellow]{b_idx + 1}/{num_boards}[/]: [blue bold]{bootloader_board.board.name}"
             )
-
-            boot_interface = bootloader.Bootloader(
-                bus=bus, board=board, ui_callback=ui_callback
+            bootloader_board.erase()
+            live.console.log(
+                f"[green]{bootloader_board.board.name} erased successfully"
             )
-            boot_interface.erase()
-
-            live.console.log(f"[green]{board.name} erased successfully")
-
+        progress.remove_task(steps_task)
         live.console.log(
             f"[bold green]Erase successful ({num_boards} board{'s' if num_boards > 1 else ''} erased)"
         )
-
-    # push all boards out of bootlaoder
-    bus.send(can.Message(arbitration_id=GO_TO_APP, data=[], is_extended_id=False))
 
 
 if __name__ == "__main__":
@@ -131,13 +160,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--channel", type=str, default="PCAN_USBBUS1", help="python-can channel"
     )
-    parser.add_argument("--bit_rate", type=int, default=500000, help="CAN bus bit rate")
+    parser.add_argument(
+        "--bit_rate", type=int, default=1000000, help="CAN bus bit rate"
+    )
     parser.add_argument(
         "--config",
         "-c",
         type=str,
         required=True,
-        help="Config to load",
+        help="Config to load. Note that you can specify multiple with comma separation.",
     )
     parser.add_argument(
         "--build",
@@ -149,20 +180,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load config and binary.
-    configs = []
-    for config_name in args.config.split(","):
-        config_name = config_name.strip()
-        config = boards.CONFIGS[config_name]
-
-        for board in config:
-            if board not in configs:
-                configs.append(board)
-
+    c = list(
+        {
+            board
+            for config_name in args.config.split(",")
+            for board in boards.CONFIGS[config_name.strip()]
+        }
+    )
     with can.interface.Bus(
         interface=args.bus, channel=args.channel, bitrate=args.bit_rate
     ) as bus:
-        bus.shutdown
         if args.erase:
-            erase(configs=configs)
+            erase(configs=c)
         else:
-            update(configs=configs, build_dir=args.build)
+            update(configs=c, build_dir=args.build)

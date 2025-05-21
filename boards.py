@@ -33,10 +33,20 @@ class Microcontroller:
 @dataclasses.dataclass(frozen=True)
 class Board:
     name: str
-    start_update_can_id: int
-    update_ack_can_id: int
+    boot_id_range_start: int
+    app_id_range_start: int
     mcu: Microcontroller
     path: str
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.name,
+                self.boot_id_range_start,
+                self.app_id_range_start,
+                self.mcu.name,
+            )
+        )
 
 
 STM32F412_MCU = Microcontroller(
@@ -93,55 +103,39 @@ STM32H733_MCU = Microcontroller(
     ],
 )
 
-quadruna_VC = Board(
-    name="VC",
-    start_update_can_id=1210,
-    update_ack_can_id=1211,
-    mcu=STM32H733_MCU,
-    path=os.path.join("firmware", "quadruna", "VC", "quadruna_VC_app_metadata.hex"),
-)
-quadruna_BMS = Board(
-    name="BMS",
-    start_update_can_id=1200,
-    update_ack_can_id=1201,
-    mcu=STM32H733_MCU,
-    path=os.path.join("firmware", "quadruna", "BMS", "quadruna_BMS_app_metadata.hex"),
-)
-quadruna_FSM = Board(
+quintuna_FSM = Board(
     name="FSM",
-    start_update_can_id=1220,
-    update_ack_can_id=1221,
+    boot_id_range_start=0x10000000,
+    app_id_range_start=600,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "quadruna", "FSM", "quadruna_FSM_app_metadata.hex"),
+    path=os.path.join("firmware", "quintuna", "FSM", "quintuna_FSM_app_metadata.hex"),
 )
-quadruna_RSM = Board(
+quintuna_RSM = Board(
     name="RSM",
-    start_update_can_id=1230,
-    update_ack_can_id=1231,
+    boot_id_range_start=0x14000000,
+    app_id_range_start=700,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "quadruna", "RSM", "quadruna_RSM_app_metadata.hex"),
+    path=os.path.join("firmware", "quintuna", "RSM", "quintuna_RSM_app_metadata.hex"),
 )
-quadruna_CRIT = Board(
+quintuna_CRIT = Board(
     name="CRIT",
-    start_update_can_id=1240,
-    update_ack_can_id=1241,
+    boot_id_range_start=0x18000000,
+    app_id_range_start=900,
     mcu=STM32F412_MCU,
-    path=os.path.join("firmware", "quadruna", "CRIT", "quadruna_CRIT_app_metadata.hex"),
+    path=os.path.join("firmware", "quintuna", "CRIT", "quintuna_CRIT_app_metadata.hex"),
 )
 h7dev = Board(
     name="h7dev",
-    start_update_can_id=1300,
-    update_ack_can_id=1301,
+    boot_id_range_start=0x20000000,
+    app_id_range_start=1200,
     mcu=STM32H733_MCU,
     path=os.path.join("firmware", "dev", "h7dev", "h7dev_app_metadata.hex"),
 )
 
 CONFIGS = {
-    "VC": [quadruna_VC],
-    "BMS": [quadruna_BMS],
-    "FSM": [quadruna_FSM],
-    "RSM": [quadruna_RSM],
-    "CRIT": [quadruna_CRIT],
-    "quadruna": [quadruna_VC, quadruna_BMS, quadruna_FSM, quadruna_RSM, quadruna_CRIT],
+    "quintuna_FSM": [quintuna_FSM],
+    "quintuna_RSM": [quintuna_RSM],
+    "quintuna_CRIT": [quintuna_CRIT],
+    "quintuna": [quintuna_FSM, quintuna_RSM, quintuna_CRIT],
     "h7dev": [h7dev],
 }

@@ -10,19 +10,19 @@ import math
 import can
 import time
 import intelhex
+from win32cryptcon import szOID_USER_CERTIFICATE
+
 import boards
 
 # Keep CAN protocol in sync with:
 # Consolidated-Firmware/firmware/boot/shared/config.h
 
 # CAN command message IDs.
-ERASE_SECTOR_CAN_ID = 1000
-PROGRAM_CAN_ID = 1001
-VERIFY_CAN_ID = 1002
-
-# CAN reply message IDs.
-ERASE_SECTOR_COMPLETE_CAN_ID = 1010
-APP_VALIDITY_CAN_ID = 1011
+ERASE_SECTOR_CAN_ID_LOWBITS = 0x4
+ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS = 0x5
+PROGRAM_CAN_ID_LOWBITS = 0x6
+VERIFY_CAN_ID_LOWBITS = 0x7
+APP_VALIDITY_CAN_ID_LOWBITS = 0x8
 
 # Verify response options.
 # Keep in sync with:
@@ -36,6 +36,12 @@ MIN_PROG_SIZE_BYTES = 32
 
 
 class Bootloader:
+    bus: can.Bus
+    ih: intelhex.IntelHex
+    board: boards.Board
+    timeout: int
+    ui_callback: Callable
+
     def __init__(
         self,
         bus: can.Bus,
@@ -44,11 +50,55 @@ class Bootloader:
         ih: intelhex.IntelHex = None,
         timeout: int = 5,
     ) -> None:
-        self.bus = bus
-        self.ih = ih
-        self.board = board
-        self.timeout = timeout
-        self.ui_callback = ui_callback
+        self.bus: can.Bus = bus
+        self.ih: intelhex.IntelHex = ih
+        self.board: boards.Board = board
+        self.timeout: int = timeout
+        self.ui_callback: Callable = ui_callback
+
+    def goto_bootloader(self) -> bool:
+        """
+        Pushes all boards to bootloader mode.
+        :throws: TimeoutError if the boards do not respond
+        :return: None
+        """
+        self.bus.send(
+            can.Message(
+                # arbitration_id=board_config.app_id_range_start + 8,
+                arbitration_id=self.board.boot_id_range_start | 0x9,
+                data=[],
+                # is_extended_id=True,
+                is_extended_id=True,
+            ),
+            timeout=10,
+        )
+        # TODO add retry protocol
+        return (
+            self._await_can_msg(
+                lambda msg: msg.arbitration_id
+                == (self.board.boot_id_range_start | 0x0),
+                5,
+            )
+            is not None
+        )
+
+    def goto_app(self) -> bool:
+        self.bus.send(
+            can.Message(
+                arbitration_id=self.board.boot_id_range_start | 0x3,
+                data=[],
+                is_extended_id=True,
+            ),
+            timeout=10,
+        )
+        # TODO add retry protocol
+        return (
+            self._await_can_msg(
+                lambda msg: msg.arbitration_id == self.board.app_id_range_start + 0,
+                5,
+            )
+            is not None
+        )
 
     def start_update(self) -> bool:
         """
@@ -63,13 +113,17 @@ class Bootloader:
 
         def _validator(msg: can.Message) -> bool:
             """Validate that we've received the "update ack" msg."""
-            return True if msg.arbitration_id == self.board.update_ack_can_id else None
+            return (
+                True
+                if msg.arbitration_id == self.board.boot_id_range_start | 0x2
+                else None
+            )
 
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.start_update_can_id,
+                arbitration_id=self.board.boot_id_range_start | 0x1,
                 data=[],
-                is_extended_id=False,
+                is_extended_id=True,
             )
         )
         return (
@@ -89,7 +143,12 @@ class Bootloader:
 
         def _validator(msg: can.Message):
             """Validate that we've received the "erase complete" msg."""
-            return True if msg.arbitration_id == ERASE_SECTOR_COMPLETE_CAN_ID else None
+            return (
+                True
+                if msg.arbitration_id
+                == self.board.boot_id_range_start | ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS
+                else None
+            )
 
         erase_size = sum([sector.size for sector in sectors])
         erase_progress = 0
@@ -103,9 +162,10 @@ class Bootloader:
 
             self.bus.send(
                 can.Message(
-                    arbitration_id=ERASE_SECTOR_CAN_ID,
+                    arbitration_id=self.board.boot_id_range_start
+                    | ERASE_SECTOR_CAN_ID_LOWBITS,
                     data=[sector.id],
-                    is_extended_id=False,
+                    is_extended_id=True,
                 )
             )
             if not self._await_can_msg(validator=_validator, timeout=self.timeout):
@@ -132,15 +192,21 @@ class Bootloader:
                 self.ui_callback("Programming data", self.size_bytes(), i * 8)
 
             data = [self.ih[address + i] for i in range(0, 8)]
-            self.bus.send(
-                can.Message(
-                    arbitration_id=PROGRAM_CAN_ID, data=data, is_extended_id=False
-                )
-            )
 
-            # Empirically, this tiny delay between messages seems to improve reliability.
-            time.sleep(0.0005)
-
+            success = False
+            while not success:
+                try:
+                    self.bus.send(
+                        can.Message(
+                            arbitration_id=self.board.boot_id_range_start
+                            | PROGRAM_CAN_ID_LOWBITS,
+                            data=data,
+                            is_extended_id=True,
+                        )
+                    )
+                    success = True
+                except can.interfaces.vector.exceptions.VectorOperationError:
+                    pass
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
 
@@ -161,10 +227,19 @@ class Bootloader:
 
         def _validator(msg: can.Message):
             """Validate that we've received the "app validity" msg, and the app is valid."""
-            return True if msg.arbitration_id == APP_VALIDITY_CAN_ID else None
+            return (
+                True
+                if msg.arbitration_id
+                == self.board.boot_id_range_start | APP_VALIDITY_CAN_ID_LOWBITS
+                else None
+            )
 
         self.bus.send(
-            can.Message(arbitration_id=VERIFY_CAN_ID, data=[], is_extended_id=False)
+            can.Message(
+                arbitration_id=self.board.boot_id_range_start | VERIFY_CAN_ID_LOWBITS,
+                data=[],
+                is_extended_id=True,
+            )
         )
         rx_msg = self._await_can_msg(_validator)
         if rx_msg is None:
@@ -269,16 +344,15 @@ class Bootloader:
         Helper function to await a CAN msg response within a timeout, with a validator function.
 
         """
+        assert validator is not None
+
         start = time.time()
         while time.time() - start < timeout:
-            rx_msg = self.bus.recv(timeout=1)
-            if rx_msg:
-                if validator:
-                    if validator(rx_msg) is True:
-                        return rx_msg
-                    if validator(rx_msg) is False:
-                        return False
-
+            rx_msg: can.Message = self.bus.recv(timeout=1)
+            if rx_msg is None:
+                continue
+            if validator(rx_msg):
+                return rx_msg
         return None
 
     def size_bytes(self) -> int:
