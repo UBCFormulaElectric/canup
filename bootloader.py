@@ -92,7 +92,8 @@ class Bootloader:
         # TODO add retry protocol
         return (
             self._await_can_msg(
-                lambda msg: msg.arbitration_id == self.board.app_id_range_start + 0, 5
+                lambda msg: msg.arbitration_id == self.board.boot_id_range_start | 0x9,
+                5,
             )
             is not None
         )
