@@ -7,6 +7,7 @@ Main driver script used to update code over the CAN bus.
 
 import argparse
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 import can
@@ -27,7 +28,7 @@ progress = Progress(
 )
 
 
-def all_goto_bootloader(live: Live, bootloaders: List[bootloader.Bootloader]):
+def all_goto_bootloader(bootloaders: List[bootloader.Bootloader], live: Live):
     live.console.log("Putting all boards into bootloader mode")
     # first put everybody into bootloader mode
     bootload_task = progress.add_task("Jump to Bootloader")
@@ -46,7 +47,7 @@ def all_goto_bootloader(live: Live, bootloaders: List[bootloader.Bootloader]):
     live.console.log(f"[bold green]All boards pushed into bootloader mode successfully")
 
 
-def all_goto_app(live: Live, bootloaders: List[bootloader.Bootloader]):
+def all_goto_app(bootloaders: List[bootloader.Bootloader], live: Live):
     live.console.log("Pushing all boards out of bootloader mode")
     app_task = progress.add_task("Jump to App")
     for b_idx, bootload_board in enumerate(bootloaders):
@@ -66,9 +67,24 @@ def all_goto_app(live: Live, bootloaders: List[bootloader.Bootloader]):
     )
 
 
+def update_board(bootload_board: bootloader.Bootloader, live: Live):
+    steps_task = progress.add_task(
+        f"Updating board [blue bold]{bootload_board.board.name}"
+    )
+    bootload_board.update(
+        ui_callback=lambda description, total, completed: progress.update(
+            task_id=steps_task,
+            total=total,
+            description=description,
+            completed=completed,
+        )
+    )
+    live.console.log(f"[green]{bootload_board.board.name} updated successfully")
+    progress.remove_task(steps_task)
+
+
 def update(configs: List[boards.Board], build_dir: str) -> None:
     """Update and handle UI."""
-    num_boards = len(configs)
     bootloaders: List[bootloader.Bootloader] = [
         bootloader.Bootloader(
             bus=bus,
@@ -81,43 +97,38 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
     # push all boards into bootloader
     with Live(Group(status, progress), transient=True) as live:
         # push all boards into bootloader
-        all_goto_bootloader(live, bootloaders)
+        all_goto_bootloader(bootloaders, live)
         live.console.log(
             f"Updating firmware for boards: [blue bold]{', '.join(board.name for board in configs)}"
         )
-        steps_task = progress.add_task("Steps")
-        for b_idx, bootload_board in enumerate(bootloaders):
-            # TODO do this in parallel
-            progress.update(
-                task_id=steps_task,
-                total=0,
-                completed=0,
-                description=f"Starting update for {bootload_board.board.name}",
-            )
-            status.update(
-                f"Updating board [yellow]{b_idx + 1}/{num_boards}[/]: [blue bold]{bootload_board.board.name}"
-            )
-            bootload_board.update(
-                ui_callback=lambda description, total, completed: progress.update(
-                    task_id=steps_task,
-                    total=total,
-                    description=description,
-                    completed=completed,
-                )
-            )
-            live.console.log(f"[green]{bootload_board.board.name} updated successfully")
-        progress.remove_task(steps_task)
+        with ThreadPoolExecutor(max_workers=(len(configs))) as executor:
+            executor.map(update_board, [(b, live) for b in bootloaders])
         live.console.log(
-            f"[bold green]Firmware update successfully ({num_boards} board{'s' if num_boards > 1 else ''} updated)"
+            f"[bold green]Firmware update successfully ({len(configs)} board{'s' if len(configs) > 1 else ''} updated)"
         )
         # push all boards out of bootloader
-        all_goto_app(live, bootloaders)
+        all_goto_app(bootloaders, live)
+
+
+def erase_board(bootloader_board: bootloader.Bootloader, live: Live):
+    steps_task = progress.add_task(
+        f"Erasing board [blue bold]{bootloader_board.board.name}"
+    )
+    bootloader_board.erase(
+        ui_callback=lambda description, total, completed: progress.update(
+            task_id=steps_task,
+            total=total,
+            description=description,
+            completed=completed,
+        )
+    )
+    live.console.log(f"[green]{bootloader_board.board.name} erased successfully")
+    progress.remove_task(steps_task)
 
 
 def erase(configs: List[boards.Board]) -> None:
     """Erase and handle UI."""
     # push all boards into bootloader
-    num_boards = len(configs)
     bootloaders = [
         bootloader.Bootloader(
             bus=bus,
@@ -125,34 +136,15 @@ def erase(configs: List[boards.Board]) -> None:
         )
         for board in configs
     ]
-
     with Live(Group(status, progress), transient=True) as live:
-        all_goto_bootloader(live, bootloaders)
-
+        all_goto_bootloader(bootloaders, live)
         live.console.log(
             f"Erasing with config: [blue bold]{', '.join(board.name for board in configs)}"
         )
-        steps_task = progress.add_task("Steps")
-        for b_idx, bootloader_board in enumerate(bootloaders):
-            # TODO do this in parallel
-            status.update(f"Sending board {bootloader_board.board.name} to bootloader")
-            status.update(
-                f"Erasing board [yellow]{b_idx + 1}/{num_boards}[/]: [blue bold]{bootloader_board.board.name}"
-            )
-            bootloader_board.erase(
-                ui_callback=lambda description, total, completed: progress.update(
-                    task_id=steps_task,
-                    total=total,
-                    description=description,
-                    completed=completed,
-                )
-            )
-            live.console.log(
-                f"[green]{bootloader_board.board.name} erased successfully"
-            )
-        progress.remove_task(steps_task)
+        with ThreadPoolExecutor(max_workers=(len(configs))) as executor:
+            executor.map(update_board, [(b, live) for b in bootloaders])
         live.console.log(
-            f"[bold green]Erase successful ({num_boards} board{'s' if num_boards > 1 else ''} erased)"
+            f"[bold green]Erase successful ({len(configs)} board{'s' if len(configs) > 1 else ''} erased)"
         )
 
 
