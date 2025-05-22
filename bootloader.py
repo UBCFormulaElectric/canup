@@ -40,13 +40,11 @@ class Bootloader:
     ih: intelhex.IntelHex
     board: boards.Board
     timeout: int
-    # ui_callback: Callable
 
     def __init__(
         self,
         bus: can.Bus,
         board: boards.Board,
-        # ui_callback: Callable,
         ih: intelhex.IntelHex = None,
         timeout: int = 5,
     ) -> None:
@@ -54,7 +52,6 @@ class Bootloader:
         self.ih: intelhex.IntelHex = ih
         self.board: boards.Board = board
         self.timeout: int = timeout
-        # self.ui_callback: Callable = ui_callback
 
     def goto_bootloader(self) -> bool:
         """
