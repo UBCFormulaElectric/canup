@@ -181,7 +181,7 @@ if __name__ == "__main__":
             for board in boards.CONFIGS[config_name.strip()]
         }
     )
-    with can.interface.Bus(
+    with can.ThreadSafeBus(
         interface=args.bus, channel=args.channel, bitrate=args.bit_rate
     ) as bus:
         if args.erase:
