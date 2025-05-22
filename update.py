@@ -69,17 +69,10 @@ def all_goto_app(live: Live, bootloaders: List[bootloader.Bootloader]):
 def update(configs: List[boards.Board], build_dir: str) -> None:
     """Update and handle UI."""
     num_boards = len(configs)
-    steps_task = progress.add_task("Steps")
     bootloaders: List[bootloader.Bootloader] = [
         bootloader.Bootloader(
             bus=bus,
             board=board,
-            ui_callback=lambda description, total, completed: progress.update(
-                task_id=steps_task,
-                total=total,
-                description=description,
-                completed=completed,
-            ),
             ih=intelhex.IntelHex(os.path.join(build_dir, board.path)),
         )
         for board in configs
@@ -92,6 +85,7 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
         live.console.log(
             f"Updating firmware for boards: [blue bold]{', '.join(board.name for board in configs)}"
         )
+        steps_task = progress.add_task("Steps")
         for b_idx, bootload_board in enumerate(bootloaders):
             # TODO do this in parallel
             progress.update(
@@ -103,7 +97,14 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
             status.update(
                 f"Updating board [yellow]{b_idx + 1}/{num_boards}[/]: [blue bold]{bootload_board.board.name}"
             )
-            bootload_board.update()
+            bootload_board.update(
+                ui_callback=lambda description, total, completed: progress.update(
+                    task_id=steps_task,
+                    total=total,
+                    description=description,
+                    completed=completed,
+                )
+            )
             live.console.log(f"[green]{bootload_board.board.name} updated successfully")
         progress.remove_task(steps_task)
         live.console.log(
@@ -117,17 +118,10 @@ def erase(configs: List[boards.Board]) -> None:
     """Erase and handle UI."""
     # push all boards into bootloader
     num_boards = len(configs)
-    steps_task = progress.add_task("Steps")
     bootloaders = [
         bootloader.Bootloader(
             bus=bus,
             board=board,
-            ui_callback=lambda description, total, completed: progress.update(
-                task_id=steps_task,
-                total=total,
-                description=description,
-                completed=completed,
-            ),
         )
         for board in configs
     ]
@@ -138,13 +132,21 @@ def erase(configs: List[boards.Board]) -> None:
         live.console.log(
             f"Erasing with config: [blue bold]{', '.join(board.name for board in configs)}"
         )
+        steps_task = progress.add_task("Steps")
         for b_idx, bootloader_board in enumerate(bootloaders):
             # TODO do this in parallel
             status.update(f"Sending board {bootloader_board.board.name} to bootloader")
             status.update(
                 f"Erasing board [yellow]{b_idx + 1}/{num_boards}[/]: [blue bold]{bootloader_board.board.name}"
             )
-            bootloader_board.erase()
+            bootloader_board.erase(
+                ui_callback=lambda description, total, completed: progress.update(
+                    task_id=steps_task,
+                    total=total,
+                    description=description,
+                    completed=completed,
+                )
+            )
             live.console.log(
                 f"[green]{bootloader_board.board.name} erased successfully"
             )

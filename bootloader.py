@@ -40,13 +40,13 @@ class Bootloader:
     ih: intelhex.IntelHex
     board: boards.Board
     timeout: int
-    ui_callback: Callable
+    # ui_callback: Callable
 
     def __init__(
         self,
         bus: can.Bus,
         board: boards.Board,
-        ui_callback: Callable,
+        # ui_callback: Callable,
         ih: intelhex.IntelHex = None,
         timeout: int = 5,
     ) -> None:
@@ -54,7 +54,7 @@ class Bootloader:
         self.ih: intelhex.IntelHex = ih
         self.board: boards.Board = board
         self.timeout: int = timeout
-        self.ui_callback: Callable = ui_callback
+        # self.ui_callback: Callable = ui_callback
 
     def goto_bootloader(self) -> bool:
         """
@@ -130,7 +130,7 @@ class Bootloader:
             self._await_can_msg(validator=_validator, timeout=self.timeout) is not None
         )
 
-    def erase_sectors(self, sectors) -> bool:
+    def erase_sectors(self, sectors, ui_callback: Optional[Callable] = None) -> bool:
         """
         Erase specific sectors of FLASH, sets all bytes to 0xFF. FLASH memory must first be
         erased before it can be programmed.
@@ -154,8 +154,8 @@ class Bootloader:
         erase_progress = 0
 
         for sector in sectors:
-            if self.ui_callback:
-                self.ui_callback("Erasing FLASH sectors", erase_size, erase_progress)
+            if ui_callback is not None:
+                ui_callback("Erasing FLASH sectors", erase_size, erase_progress)
 
             if sector.write_protect:
                 raise RuntimeError("Attempted to write to a readonly memory sector!")
@@ -173,12 +173,12 @@ class Bootloader:
 
             erase_progress += sector.size
 
-        if self.ui_callback:
-            self.ui_callback("Erasing FLASH sectors", erase_size, erase_size)
+        if ui_callback is not None:
+            ui_callback("Erasing FLASH sectors", erase_size, erase_size)
 
         return True
 
-    def program(self) -> None:
+    def program(self, ui_callback: Optional[Callable] = None) -> None:
         """
         Program the binary into flash. There is no CAN handshake here to reduce
         latency during programming. Also, the bootloader will verify the app's code is valid
@@ -188,8 +188,8 @@ class Bootloader:
         for i, address in enumerate(
             range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
         ):
-            if self.ui_callback and i % 128 == 0:
-                self.ui_callback("Programming data", self.size_bytes(), i * 8)
+            if ui_callback is not None and i % 128 == 0:
+                ui_callback("Programming data", self.size_bytes(), i * 8)
 
             data = [self.ih[address + i] for i in range(0, 8)]
 
@@ -207,8 +207,8 @@ class Bootloader:
                     success = True
                 except can.interfaces.vector.exceptions.VectorOperationError:
                     pass
-        if self.ui_callback:
-            self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
+        if ui_callback is not None:
+            ui_callback("Programming data", self.size_bytes(), self.size_bytes())
 
     def status(self) -> Optional[int]:
         """
@@ -247,7 +247,7 @@ class Bootloader:
 
         return rx_msg.data[0]
 
-    def update(self) -> None:
+    def update(self, ui_callback: Optional[Callable] = None) -> None:
         """
         Run the update procedure for this bootloader.
 
@@ -284,7 +284,8 @@ class Bootloader:
         self.program()
         time.sleep(0.5)
 
-        self.ui_callback("Verifying programming", self.size_bytes(), 0)
+        if ui_callback is not None:
+            ui_callback("Verifying programming", self.size_bytes(), 0)
         boot_status = self.status()
         if boot_status is not None:
             if boot_status != BOOT_STATUS_APP_VALID:
@@ -296,10 +297,11 @@ class Bootloader:
                 f"Bootloader for {self.board.name} did not respond to command to verify application integrity."
             )
 
-        self.ui_callback("Verifying programming", self.size_bytes(), self.size_bytes())
+        if ui_callback is not None:
+            ui_callback("Verifying programming", self.size_bytes(), self.size_bytes())
         time.sleep(0.5)
 
-    def erase(self) -> None:
+    def erase(self, ui_callback: Optional[Callable] = None) -> None:
         """
         Erase this bootloader's application.
 
@@ -322,7 +324,8 @@ class Bootloader:
             )
         time.sleep(0.5)
 
-        self.ui_callback("Verifying erase", erase_size, 0)
+        if ui_callback is not None:
+            ui_callback("Verifying erase", erase_size, 0)
         boot_status = self.status()
         if boot_status is not None:
             if boot_status != BOOT_STATUS_NO_APP:
@@ -333,8 +336,8 @@ class Bootloader:
             raise RuntimeError(
                 f"Bootloader for {self.board.name} did not respond to command to erase flash."
             )
-
-        self.ui_callback("Verifying erase", erase_size, erase_size)
+        if ui_callback is not None:
+            ui_callback("Verifying erase", erase_size, erase_size)
         time.sleep(0.5)
 
     def _await_can_msg(
