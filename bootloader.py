@@ -186,12 +186,6 @@ class Bootloader:
         by computing a checksum.
         """
 
-        # updated TCP inspired can bootloading: sender will send packet with can id's representing their memory address. The reciever will expect a can ID, of the sender can ID and reciever can ID match all is good, if there is a miss match the board will transmit the excepted can ID back.
-        # if the expected Can ID is a multiple of 4 it will directly be sent back to the user to begin retransmission at that address, if it is not an interval of 4 then retransmision is restarted at the closests (smaller) interval of 4. Note that a nuiassnace that we have to figure out is that 
-        # if we do want to move back to the closest interval of 4  then we need to figure out how to reflash adddresses that were already flashed (ie if its address 247 and the closest interval of 4 is 244) then we will attempt to reflash 244-246 even though they have already been flashed. Now with the 
-        # stm32s to write to flash memory we need to first erase it. Now if that is the case we need to figure out how to erase as the stm32 can only erase sectors at a time which is 16kb.... I am unsure on what happens if we try to flash memory that has not been erased. If it retains its originally value that that would be best and we can jsut do redundant flashing until we 
-        # get to the address that actually needs to be reflashed.
-
         self.__transmission_address = self.ih.minaddr()
         self.__transmission_id = self.board.boot_id_range_start | APP_START_PROGRAM_ID
         self.__index = 0
