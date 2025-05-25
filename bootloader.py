@@ -10,7 +10,6 @@ import math
 import can
 import time
 import intelhex
-from win32cryptcon import szOID_USER_CERTIFICATE
 
 import boards
 
