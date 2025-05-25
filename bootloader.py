@@ -58,8 +58,6 @@ class Bootloader:
         self.timeout: int = timeout
         self.ui_callback: Callable = ui_callback
         self.dropped_packets = set()
-        self.__transmission_address = self.board.boot_id_range_start 
-
     def goto_bootloader(self) -> bool:
         """
         Pushes all boards to bootloader mode.
@@ -194,48 +192,84 @@ class Bootloader:
         # if we do want to move back to the closest interval of 4  then we need to figure out how to reflash adddresses that were already flashed (ie if its address 247 and the closest interval of 4 is 244) then we will attempt to reflash 244-246 even though they have already been flashed. Now with the 
         # stm32s to write to flash memory we need to first erase it. Now if that is the case we need to figure out how to erase as the stm32 can only erase sectors at a time which is 16kb.... I am unsure on what happens if we try to flash memory that has not been erased. If it retains its originally value that that would be best and we can jsut do redundant flashing until we 
         # get to the address that actually needs to be reflashed.
-        
+
+        self.__transmission_address = self.ih.minaddr()
+        self.__transmission_id = self.board.boot_id_range_start | APP_START_PROGRAM_ID
+        self.__index = 0
+
         def _validator(msg: can.Message):
             # Ignore all known status messages
             print(f"Can ID that come through {msg.arbitration_id}\n")
             if msg.arbitration_id ==  (self.board.boot_id_range_start | NAK_ID):
-                self.__transmission_address = int.from_bytes(msg.data, "little")
+                dropped_packet_address = int.from_bytes(msg.data, "little")
+                self.__transmission_address = (dropped_packet_address // 8) * 8
+                self.__index = dropped_packet_address % 8
+                self.__transmission_id = self.board.boot_id_range_start | APP_START_PROGRAM_ID
                 return False
             else:
                 return True 
 
-        for i, address in enumerate(
-            range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
-        ):
-            self.__transmission_address = address #use an internal pointer
+        while self.__transmission_address < self.ih.minaddr() + self.size_bytes():
 
-            if self.ui_callback and i % 128 == 0:
-                self.ui_callback("Programming data", self.size_bytes(), i * 8)
-            data = [self.ih[address + i] for i in range(0, 8)]
+            if self.ui_callback and self.__index % 128 == 0:
+                self.ui_callback("Programming data", self.size_bytes(), self.__index * 8)
+                self.__index += 1
+            
+            data = [self.ih[self.__transmission_address + i] for i in range(0, 8)]
 
             success = False
-            while not success:
-                try:
-                    self.bus.send(
-                        can.Message(
-                            arbitration_id=address,
-                            data=data,
-                            is_extended_id=True,
+            if(self.__transmission_id <= (self.board.boot_id_range_start | FINAL_PROGRAM_ID)):
+                while not success:
+                    try:
+                        self.bus.send(
+                            can.Message(
+                                arbitration_id=self.__transmission_id,
+                                data=data,
+                                is_extended_id=True,
+                            )
                         )
-                    )
-                    success = True
-                except can.interfaces.vector.exceptions.VectorOperationError:
-                    pass
-            
-            nak = ~self._await_can_msg(_validator, timeout=NAK_TIMEOUT)
+                        success = True
+                    except can.interfaces.vector.exceptions.VectorOperationError:
+                        pass
 
-            if nak == False:
-                print(f"WE LIT!!!!! PACKET {self.__transmission_address} recieved\n")
-                
-            elif nak == True: 
-                print(f"PACKET DROPPED AT {self.__transmission_address}\n")
-            else:
-                print("TIMEOUT\n")
+                nak = ~self._await_can_msg(_validator, timeout=NAK_TIMEOUT)
+
+                if nak == False:
+                    print(f"WE LIT!!!!! PACKET {self.__transmission_address} recieved\n")
+                    self.__transmission_address += 8
+                elif nak == True: 
+                    print(f"PACKET DROPPED, Re-transmission starting at address {self.__transmission_address}\n")
+                    print(f"PACKET DROPPED, Re-transmission starting at index {self.__index}\n")
+                else:
+                    print("TIMEOUT\n")
+
+
+        # for i, address in enumerate(
+        #     range(self.ih.minaddr(), self.ih.minaddr() + self.size_bytes(), 8)
+        # ):
+        #     self.__transmission_address = address #use an internal pointer
+
+        #     if self.ui_callback and i % 128 == 0:
+        #         self.ui_callback("Programming data", self.size_bytes(), i * 8)
+        #     data = [self.ih[address + i] for i in range(0, 8)]
+
+        #     success = False
+        #     if(self.__transmission_id <= (self.board.boot_id_range_start | FINAL_PROGRAM_ID)):
+        #         while not success:
+        #             try:
+        #                 self.bus.send(
+        #                     can.Message(
+        #                         arbitration_id=self.__transmission_id,
+        #                         data=data,
+        #                         is_extended_id=True,
+        #                     )
+        #                 )
+        #                 success = True
+        #             except can.interfaces.vector.exceptions.VectorOperationError:
+        #                 pass
+        #     else:
+        #         print(f"RAN OUT OF BOARD IDS, current can ID {self.__transmission_id}")
+            
 
             # Empirically, this tiny delay between messages seems to improve reliability.
             time.sleep(0.0005)
