@@ -66,7 +66,7 @@ def all_goto_app(live: Live, bootloaders: List[bootloader.Bootloader]):
     )
 
 
-def update(configs: List[boards.Board], build_dir: str) -> None:
+def update(configs: List[boards.Board], build_dir: str, is_fd: bool) -> None:
     """Update and handle UI."""
     num_boards = len(configs)
     steps_task = progress.add_task("Steps")
@@ -79,6 +79,7 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
                 total=total,
                 description=description,
                 completed=completed,
+                is_fd=is_fd
             ),
             ih=intelhex.IntelHex(os.path.join(build_dir, board.path)),
         )
@@ -207,6 +208,6 @@ if __name__ == "__main__":
         output_mode=0,
     ) as bus:
         if args.erase:
-            erase(configs=c)
+            erase(configs=c, is_fd=args.fd)
         else:
-            update(configs=c, build_dir=args.build)
+            update(configs=c, build_dir=args.build, is_fd=args.fd)
