@@ -206,6 +206,7 @@ if __name__ == "__main__":
         tseg1_dbr=15,
         tseg2_dbr=4,
         output_mode=0,
+        app_name=None
     ) as bus:
         if args.erase:
             erase(configs=c, is_fd=args.fd)

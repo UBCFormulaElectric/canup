@@ -142,7 +142,7 @@ quintuna_BMS = Board(
     name="BMS",
     boot_id_range_start=0x04000000,
     app_id_range_start=400,
-    mcu=STM32H733_MCU,
+    mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "BMS", "quintuna_BMS_app_metadata.hex"),
 )
 
@@ -159,6 +159,7 @@ CONFIGS = {
     "quintuna_RSM": [quintuna_RSM],
     "quintuna_CRIT": [quintuna_CRIT],
     "quintuna_DAM": [quintuna_DAM],
+    "quintuna_BMS": [quintuna_BMS],
     "quintuna": [quintuna_FSM, quintuna_RSM, quintuna_CRIT],
     "h7dev": [h7dev],
 }
