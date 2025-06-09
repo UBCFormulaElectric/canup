@@ -50,12 +50,14 @@ class Bootloader:
         ui_callback: Callable,
         ih: intelhex.IntelHex = None,
         timeout: int = 5,
+        is_fd: bool = False
     ) -> None:
         self.bus: can.Bus = bus
         self.ih: intelhex.IntelHex = ih
         self.board: boards.Board = board
         self.timeout: int = timeout
         self.ui_callback: Callable = ui_callback
+        self.is_fd = is_fd
 
     def goto_bootloader(self) -> bool:
         """
@@ -70,7 +72,7 @@ class Bootloader:
                 data=[],
                 # is_extended_id=True,
                 is_extended_id=True,
-                is_fd=True
+                is_fd=self.is_fd
             ),
             timeout=10,
         )
@@ -90,7 +92,7 @@ class Bootloader:
                 arbitration_id=self.board.boot_id_range_start | 0x3,
                 data=[],
                 is_extended_id=True,
-                is_fd=True
+                is_fd=self.is_fd
             ),
             timeout=10,
         )
@@ -127,7 +129,7 @@ class Bootloader:
                 arbitration_id=self.board.boot_id_range_start | 0x1,
                 data=[],
                 is_extended_id=True,
-                is_fd=True
+                is_fd=self.is_fd
             )
         )
         return (
@@ -170,7 +172,7 @@ class Bootloader:
                     | ERASE_SECTOR_CAN_ID_LOWBITS,
                     data=[sector.id],
                     is_extended_id=True,
-                    is_fd=True
+                    is_fd=self.is_fd
                 )
             )
             if not self._await_can_msg(validator=_validator, timeout=self.timeout):
@@ -207,7 +209,7 @@ class Bootloader:
                             | PROGRAM_CAN_ID_LOWBITS,
                             data=data,
                             is_extended_id=True,
-                            is_fd=True
+                            is_fd=self.is_fd
                         )
                     )
                     success = True
@@ -246,7 +248,7 @@ class Bootloader:
                 arbitration_id=self.board.boot_id_range_start | VERIFY_CAN_ID_LOWBITS,
                 data=[],
                 is_extended_id=True,
-                is_fd=True
+                is_fd=self.is_fd
             )
         )
         rx_msg = self._await_can_msg(_validator)

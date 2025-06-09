@@ -198,14 +198,6 @@ if __name__ == "__main__":
         bitrate=args.bit_rate,
         fd=args.fd,
         data_bitrate=args.data_bitrate,
-        sjw_abr=20,
-        tseg1_abr=59,
-        tseg2_abr=20,
-        sam_abr=1,
-        sjw_dbr=4,
-        tseg1_dbr=15,
-        tseg2_dbr=4,
-        output_mode=0,
         app_name=None
     ) as bus:
         if args.erase:

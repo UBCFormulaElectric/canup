@@ -160,6 +160,9 @@ CONFIGS = {
     "quintuna_CRIT": [quintuna_CRIT],
     "quintuna_DAM": [quintuna_DAM],
     "quintuna_BMS": [quintuna_BMS],
-    "quintuna": [quintuna_FSM, quintuna_RSM, quintuna_CRIT],
+    "quintuna_VC" : [quintuna_VC],
+    "quintuna_FD": [quintuna_DAM, quintuna_VC, quintuna_BMS],
+    "quintuna_Sx" : [quintuna_CRIT, quintuna_FSM, quintuna_RSM],
+    "quintuna" : [quintuna_RSM, quintuna_BMS, quintuna_CRIT, quintuna_DAM, quintuna_CRIT, quintuna_FSM, quintuna_VC],
     "h7dev": [h7dev],
 }
