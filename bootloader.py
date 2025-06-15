@@ -66,7 +66,7 @@ class Bootloader:
         self.bus.send(
             can.Message(
                 # arbitration_id=board_config.app_id_range_start + 8,
-                arbitration_id=self.board.boot_id_range_start | 0x9,
+                arbitration_id=self.board.boot_id_range_start | 0x8,
                 data=[],
                 # is_extended_id=True,
                 is_extended_id=True,
