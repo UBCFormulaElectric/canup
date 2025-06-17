@@ -79,7 +79,7 @@ def update(configs: List[boards.Board], build_dir: str, is_fd: bool) -> None:
                 total=total,
                 description=description,
                 completed=completed,
-                is_fd=is_fd
+                is_fd=is_fd,
             ),
             ih=intelhex.IntelHex(os.path.join(build_dir, board.path)),
         )
@@ -192,13 +192,24 @@ if __name__ == "__main__":
             for board in boards.CONFIGS[config_name.strip()]
         }
     )
+
+    fdcan_args = {
+        "sjw_abr": 20,
+        "tseg1_abr": 59,
+        "tseg2_abr": 20,
+        "sam_abr": 1,
+        "sjw_dbr": 20,
+        "tseg1_dbr": 59,
+        "tseg2_dbr": 20,
+        "output_mode": 0,
+    }
     with can.interface.Bus(
         interface=args.bus,
         channel=args.channel,
-        bitrate=args.bit_rate,
         fd=args.fd,
+        bitrate=args.bit_rate,
         data_bitrate=args.data_bitrate,
-        app_name=None
+        **(fdcan_args if args.fd else {})
     ) as bus:
         if args.erase:
             erase(configs=c, is_fd=args.fd)
