@@ -209,6 +209,7 @@ if __name__ == "__main__":
         fd=args.fd,
         bitrate=args.bit_rate,
         data_bitrate=args.data_bitrate,
+        app_name = None,
         **(fdcan_args if args.fd else {})
     ) as bus:
         if args.erase:
