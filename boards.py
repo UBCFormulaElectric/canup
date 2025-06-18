@@ -124,6 +124,28 @@ quintuna_CRIT = Board(
     mcu=STM32F412_MCU,
     path=os.path.join("firmware", "quintuna", "CRIT", "quintuna_CRIT_app_metadata.hex"),
 )
+quintuna_DAM = Board(
+    name="DAM",
+    boot_id_range_start=0x0C000000,
+    app_id_range_start=800,
+    mcu=STM32H733_MCU,
+    path=os.path.join("firmware", "quintuna", "DAM", "quintuna_DAM_app_metadata.hex"),
+)
+quintuna_VC = Board(
+    name="VC",
+    boot_id_range_start=0x08000000,
+    app_id_range_start=500,
+    mcu=STM32H733_MCU,
+    path=os.path.join("firmware", "quintuna", "VC", "quintuna_VC_app_metadata.hex"),
+)
+quintuna_BMS = Board(
+    name="BMS",
+    boot_id_range_start=0x04000000,
+    app_id_range_start=400,
+    mcu=STM32H733_MCU,
+    path=os.path.join("firmware", "quintuna", "BMS", "quintuna_BMS_app_metadata.hex"),
+)
+
 h7dev = Board(
     name="h7dev",
     boot_id_range_start=0x20000000,
@@ -136,6 +158,11 @@ CONFIGS = {
     "quintuna_FSM": [quintuna_FSM],
     "quintuna_RSM": [quintuna_RSM],
     "quintuna_CRIT": [quintuna_CRIT],
-    "quintuna": [quintuna_FSM, quintuna_RSM, quintuna_CRIT],
+    "quintuna_DAM": [quintuna_DAM],
+    "quintuna_BMS": [quintuna_BMS],
+    "quintuna_VC" : [quintuna_VC],
+    "quintuna_FD": [quintuna_DAM, quintuna_VC, quintuna_BMS],
+    "quintuna_Sx" : [quintuna_CRIT, quintuna_FSM, quintuna_RSM],
+    "quintuna" : [quintuna_RSM, quintuna_BMS, quintuna_CRIT, quintuna_DAM, quintuna_CRIT, quintuna_FSM, quintuna_VC],
     "h7dev": [h7dev],
 }

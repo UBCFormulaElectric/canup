@@ -66,7 +66,7 @@ def all_goto_app(live: Live, bootloaders: List[bootloader.Bootloader]):
     )
 
 
-def update(configs: List[boards.Board], build_dir: str) -> None:
+def update(configs: List[boards.Board], build_dir: str, is_fd: bool) -> None:
     """Update and handle UI."""
     num_boards = len(configs)
     steps_task = progress.add_task("Steps")
@@ -79,6 +79,7 @@ def update(configs: List[boards.Board], build_dir: str) -> None:
                 total=total,
                 description=description,
                 completed=completed,
+                is_fd=is_fd,
             ),
             ih=intelhex.IntelHex(os.path.join(build_dir, board.path)),
         )
@@ -177,6 +178,10 @@ if __name__ == "__main__":
         help="Path to Consolidated-Firmware firmware build directory (build_fw_deploy)",
     )
     parser.add_argument("--erase", action="store_true", help="Erase app code")
+    parser.add_argument("--fd", action="store_true", help="Use FD mode")
+    parser.add_argument(
+        "--data_bitrate", type=int, default=4000000, help="CAN FD data bitrate"
+    )
     args = parser.parse_args()
 
     # Load config and binary.
@@ -187,10 +192,27 @@ if __name__ == "__main__":
             for board in boards.CONFIGS[config_name.strip()]
         }
     )
+
+    fdcan_args = {
+        "sjw_abr": 20,
+        "tseg1_abr": 59,
+        "tseg2_abr": 20,
+        "sam_abr": 1,
+        "sjw_dbr": 20,
+        "tseg1_dbr": 59,
+        "tseg2_dbr": 20,
+        "output_mode": 0,
+    }
     with can.interface.Bus(
-        interface=args.bus, channel=args.channel, bitrate=args.bit_rate
+        interface=args.bus,
+        channel=args.channel,
+        fd=args.fd,
+        bitrate=args.bit_rate,
+        data_bitrate=args.data_bitrate,
+        app_name = None,
+        **(fdcan_args if args.fd else {})
     ) as bus:
         if args.erase:
-            erase(configs=c)
+            erase(configs=c, is_fd=args.fd)
         else:
-            update(configs=c, build_dir=args.build)
+            update(configs=c, build_dir=args.build, is_fd=args.fd)
