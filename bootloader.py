@@ -17,6 +17,9 @@ import boards
 # Consolidated-Firmware/firmware/boot/shared/config.h
 
 # CAN command message IDs.
+START_UPDATE_ID_LOWBITS = 0x1
+UPDATE_ACK_ID_LOWBITS = 0x2
+GO_TO_APP_LOWBITS = 0x3
 ERASE_SECTOR_CAN_ID_LOWBITS = 0x4
 ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS = 0x5
 PROGRAM_CAN_ID_LOWBITS = 0x6
@@ -88,7 +91,7 @@ class Bootloader:
     def goto_app(self) -> bool:
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.boot_id_range_start | 0x3,
+                arbitration_id=self.board.boot_id_range_start | GO_TO_APP_LOWBITS,
                 data=[],
                 is_extended_id=True,
                 is_fd=self.is_fd
@@ -119,13 +122,13 @@ class Bootloader:
             """Validate that we've received the "update ack" msg."""
             return (
                 True
-                if msg.arbitration_id == self.board.boot_id_range_start | 0x2
+                if msg.arbitration_id == self.board.boot_id_range_start | UPDATE_ACK_ID_LOWBITS
                 else None
             )
 
         self.bus.send(
             can.Message(
-                arbitration_id=self.board.boot_id_range_start | 0x1,
+                arbitration_id=self.board.boot_id_range_start | START_UPDATE_ID_LOWBITS,
                 data=[],
                 is_extended_id=True,
                 is_fd=self.is_fd
