@@ -17,6 +17,7 @@ import boards
 # Consolidated-Firmware/firmware/boot/shared/config.h
 
 # CAN command message IDs.
+MCU_10HZ_STATUS_CAN_ID_LOWBITS = 0x0
 START_UPDATE_ID_LOWBITS = 0x1
 UPDATE_ACK_ID_LOWBITS = 0x2
 GO_TO_APP_LOWBITS = 0x3
@@ -25,6 +26,7 @@ ERASE_SECTOR_COMPLETE_CAN_ID_LOWBITS = 0x5
 PROGRAM_CAN_ID_LOWBITS = 0x6
 VERIFY_CAN_ID_LOWBITS = 0x7
 APP_VALIDITY_CAN_ID_LOWBITS = 0x8
+GO_TO_BOOT_CAN_ID_LOWBITS = 0x9
 
 # Verify response options.
 # Keep in sync with:
@@ -52,7 +54,7 @@ class Bootloader:
         ui_callback: Callable,
         ih: intelhex.IntelHex = None,
         timeout: int = 5,
-        is_fd: bool = False
+        is_fd: bool = False,
     ) -> None:
         self.bus: can.Bus = bus
         self.ih: intelhex.IntelHex = ih
@@ -70,11 +72,12 @@ class Bootloader:
         self.bus.send(
             can.Message(
                 # arbitration_id=board_config.app_id_range_start + 8,
-                arbitration_id=self.board.boot_id_range_start | 0x9,
+                arbitration_id=(
+                    self.board.boot_id_range_start | GO_TO_BOOT_CAN_ID_LOWBITS
+                ),
                 data=[],
-                # is_extended_id=True,
                 is_extended_id=True,
-                is_fd=self.is_fd
+                is_fd=self.is_fd,
             ),
             timeout=10,
         )
@@ -82,7 +85,7 @@ class Bootloader:
         return (
             self._await_can_msg(
                 lambda msg: msg.arbitration_id
-                == (self.board.boot_id_range_start | 0x0),
+                == (self.board.boot_id_range_start | MCU_10HZ_STATUS_CAN_ID_LOWBITS),
                 5,
             )
             is not None
@@ -94,7 +97,7 @@ class Bootloader:
                 arbitration_id=self.board.boot_id_range_start | GO_TO_APP_LOWBITS,
                 data=[],
                 is_extended_id=True,
-                is_fd=self.is_fd
+                is_fd=self.is_fd,
             ),
             timeout=10,
         )
@@ -122,7 +125,8 @@ class Bootloader:
             """Validate that we've received the "update ack" msg."""
             return (
                 True
-                if msg.arbitration_id == self.board.boot_id_range_start | UPDATE_ACK_ID_LOWBITS
+                if msg.arbitration_id
+                == self.board.boot_id_range_start | UPDATE_ACK_ID_LOWBITS
                 else None
             )
 
@@ -131,7 +135,7 @@ class Bootloader:
                 arbitration_id=self.board.boot_id_range_start | START_UPDATE_ID_LOWBITS,
                 data=[],
                 is_extended_id=True,
-                is_fd=self.is_fd
+                is_fd=self.is_fd,
             )
         )
         return (
@@ -174,7 +178,7 @@ class Bootloader:
                     | ERASE_SECTOR_CAN_ID_LOWBITS,
                     data=[sector.id],
                     is_extended_id=True,
-                    is_fd=self.is_fd
+                    is_fd=self.is_fd,
                 )
             )
             if not self._await_can_msg(validator=_validator, timeout=self.timeout):
@@ -211,13 +215,12 @@ class Bootloader:
                             | PROGRAM_CAN_ID_LOWBITS,
                             data=data,
                             is_extended_id=True,
-                            is_fd=self.is_fd
+                            is_fd=self.is_fd,
                         )
                     )
                     success = True
                 except can.interfaces.vector.exceptions.VectorOperationError:
                     pass
-            time.sleep(0.0005)
         if self.ui_callback:
             self.ui_callback("Programming data", self.size_bytes(), self.size_bytes())
 
@@ -250,7 +253,7 @@ class Bootloader:
                 arbitration_id=self.board.boot_id_range_start | VERIFY_CAN_ID_LOWBITS,
                 data=[],
                 is_extended_id=True,
-                is_fd=self.is_fd
+                is_fd=self.is_fd,
             )
         )
         rx_msg = self._await_can_msg(_validator)
